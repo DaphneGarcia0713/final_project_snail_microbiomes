@@ -3,6 +3,8 @@ title: "March1_briefwork_trimming_snail_data"
 author: "Daphne Garcia"
 date: "2025-03-02"
 output: pdf_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 
@@ -30,11 +32,11 @@ library("patchwork")
 ```
 
 
-#Read raw sequencing files + intuition check
+#Read RAW sequencing files + intuition check
 ```{r read raw sequencing files, intuition check}
 # Set the raw fastq path to the raw sequencing files 
 # Path to the fastq files 
-raw_fastqs_path <- "data"
+raw_fastqs_path <- "../March3/sra"        ############################CHANGE
 
 raw_fastqs_path
 
@@ -64,10 +66,26 @@ stopifnot(length(reverse_reads) == length(forward_reads))
 length(forward_reads) + length(reverse_reads)
 ```
 
+## IGNORE: this was test to see if ncbi-downloaded files had quality score
+```{r TESTING ncbi-downloaded snail data with F phred score}
 
-############ PART 2  Assess Raw Read Quality #################
+# Create vector of forward reads
+forward_read <- list.files("../March3/sra", pattern = "_1.fastq.gz", full.names = TRUE)
+forward_filteredQual_plot_12 <- plotQualityProfile(forward_read)
 
-```{r Plotting 12 random samples of plots}
+# Create vector of reverse reads
+reverse_read <- list.files("../March3/sra", pattern = "_2.fastq.gz", full.names = TRUE) 
+reverse_filteredQual_plot_12 <- plotQualityProfile(reverse_read)
+
+forward_filteredQual_plot_12 + reverse_filteredQual_plot_12
+
+```
+
+
+
+
+#Assess Raw Read Quality
+```{r Plotting PRE-QC plots}
 # Randomly select 12 samples from dataset to evaluate 
 # Selecting 12 is typically better than 2 (like we did in class for efficiency)
 random_samples <- sample(1:length(reverse_reads), size = 12)
@@ -87,4 +105,25 @@ forward_filteredQual_plot_12 + reverse_filteredQual_plot_12
 ```
 
 
+
+#Aggregated Raw Quality Plots
+```{r Aggregated Raw Quality Plots}
+# Aggregate all QC plots 
+# Forward reads
+forward_preQC_plot <- 
+  plotQualityProfile(forward_reads, aggregate = TRUE) + 
+  labs(title = "Forward Pre-QC")
+
+# reverse reads
+reverse_preQC_plot <- 
+  plotQualityProfile(reverse_reads, aggregate = TRUE) + 
+  labs(title = "Reverse Pre-QC")
+
+# Now, let's put the two plots together
+preQC_aggregate_plot <- 
+  # Plot the forward and reverse together 
+  forward_preQC_plot + reverse_preQC_plot
+# Show the plot
+preQC_aggregate_plot
+```
 
