@@ -7,9 +7,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-
-
-
 #Setting the seed
 ```{r set-seed}
 # Any number can be chosen 
@@ -129,8 +126,7 @@ preQC_aggregate_plot
 
 INTERPRETATION #1 of Pre-QC:The majority of the reads have a score of over 30. The green is the mean, and orange lines are the median and quantiles. The orange lines are for the most part a solid 36, which means only rarest data (under 25th quantile) has lowering quality scores towards the ends of the reads.
 
-High quality in early and mid-read: Both in the forward and reverse plots, the beginning and middle of the plots is solidly above 33. The reverse plot declines in quality at mid-sequence faster than the forward plot, which is expected, as 
-
+High quality in early and mid-read: Both in the forward and reverse plots, the beginning and middle of the plots is solidly above 33. The reverse plot declines in quality at mid-sequence faster than the forward plot, which is expected, as the sequencing of the reverse reads happens second, allowing more degradation of the chemistry and there are more accumulated errors.
 
 
 
@@ -211,7 +207,6 @@ forward_filteredQual_plot_12 + reverse_filteredQual_plot_12
 ```
 
 
-
 #Aggregated Trimmed plots
 ```{r aggregated trimmed plots}
 # Aggregate all QC plots 
@@ -232,6 +227,15 @@ postQC_aggregate_plot <-
 # Show the plot
 postQC_aggregate_plot
 ```
+
+Interpretation of aggregate trimmed plots:
+Forward Reads Post-QC: Mean sequence has high-quality bases above 30 throughout its entirety.There starts to be a decline around base 200, but still largely above 30. At around 225, there's one base that has a 25th percentile (orange dashed line) of around 25, but this is better compared to the raw read, where there were two dips. 
+A slight decline after ~220-230 cycles but still largely above a Phred of 30.
+
+Reverse Reads Post-QC: The reverse sequence also has a score of above 30 throughout the entire length. The initial bases are almost perfectly scored at 37, and there is a lot of stability mid-length until around 200. It is more stable than the raw reverse QC, which suggests successful trimming. Additionally, the end of the length stays at around 32, and no longer dips down like it did in the raw reads. 
+
+Takeaway: Quality filtering successfully retained high-quality bases while removing low-quality reverse end tail.
+
 
 # Read retention post QC
 ```{r}
@@ -296,10 +300,37 @@ numSeqs_QC_dotplot + numRetained_QC_histplot + percSeqs_QC_histplot +
 
 ```
 
+
+Interpretation of sequence retention plots:
+
+Panel A:
+Points are not close to the diagonal, yet they match the slope of the pink line ("perfect retention line"). This means that Samples generally lost a proportional amount of sequences during the filtering. There are two outliners, which indicate that two samples did lose significantly more reads than the others. Overall, this plot indicates that a lot of sequences were lost, and the trimming was impactful, but an equal proportion was lost from samples which hopefully means that different lapha diversity estimates won't be too impacted.
+
+Panel B: 
+The majority of samples have between ~90,000 and 110,000 retained sequences, which suggests good filtering efficiency.
+A few samples have lower retention, around 70,000 retained samples but the distribution is generally a bell curve, indicating a consistent range in read quality.
+
+Panel C: Histogram of Percent of Sequences Retained
+
+The vast majority of samples had over 80% of samples retained, with one having around 75% retained, which we can keep our eye on. We had a median 89.8% of samples retained, which is great. 
+
+Overall, I think this run of filterAndTrim() is sufficient
+
+
+
 ## Visualize QC differences in plot
 ```{r}
 preQC_aggregate_plot / postQC_aggregate_plot
 ```
+
+Interpretation of aggregate pre vs post QC plots
+
+Beginning of read: No bases at the beginning were trimmed, because in the raw QC plots,  phred scores stayed consistently around 37 until later mid-read in both forward and reverse plots. This stays true in the trimmed QC plots, which are still ~37.
+
+Middle of read: The quality remains consistently around 37 most cycles/bases.
+
+End of read: While a vertical dotted line still remains in the trimmed foward reads between mid- end of the read, the trimmed plot only has one, while the raw plot had two. The raw reverse read had a sharp drop in quality in the last three bases, with the 25th quantile dropping to ~25, and this is completely removed in the trimmed reverse read. Now, forward and reverse reads stay above ~32 throughout the whole read.
+
 
 # End time and session info
 ```{r}
@@ -310,3 +341,6 @@ end_time
 devtools::session_info()
 ```
 
+
+
+I trust that I have sufficiently QC'd my data. First, all the raw quality scores were above 30 in the first place, so there was little quality control to be done. I trimmed the end 3 bases of the reverse read, which took care of a sharp drop in quality score at the end of the reverse read, and coincidentally removed one of the two sharp drops of the 25th quantile from the forward QC plot that was in the middle of the plot. There wasn't perfect retention of the reads, as shown by the scatter plot of raw vs retained sequences, where the points were all under the pink "perfect retention line". However, the percent of sequences retained shows the vast majority of sequences retained over 80% of reads, which is a good sign that the reads were retained. Overall, I believe this is sufficient QC.
