@@ -41,6 +41,8 @@ raw_fastqs_path
 
 head(list.files(raw_fastqs_path))
 length(list.files(raw_fastqs_path))
+
+print("CCTACGGGACGCAGCAG") ## This is forward primer
 ```
 _2.fastq.gz
 
@@ -180,9 +182,13 @@ Do the reads dip suddenly in their quality? If so, explore trimLeft and truncLen
 filtered_reads <- 
   filterAndTrim(fwd = forward_reads, filt = filtered_forward_reads, rev = reverse_reads, filt.rev = filtered_reverse_reads,
               maxN = 0, maxEE = c(2,2), 
-              # Remove ZERO first bases at the beginning of the forward read, because all scores above 30
-              trimLeft = 0,
+              # Remove TWENTY THREE first bases at the beginning of both reads, because of 
+              # primer: CCTACGGGACGCAGCAG
+              #  ACAGTG CCTACGGGATGCAGCAG
+              trimLeft = c(23,26),
               # Keep the full forward & trim final 3 bases in the reverse with truncLen, because there's small dip
+              # primer: GGACTACNNGGGTATCTAAT
+              #  ATTCCT GGACTACAAGGGTATCTAAT 26
               truncLen = c(250, 247), 
               truncQ = 2, rm.phix = TRUE, compress = TRUE, multithread = TRUE)
 
