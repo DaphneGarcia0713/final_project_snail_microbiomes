@@ -14,7 +14,7 @@ editor_options:
 # Any number can be chosen 
 set.seed(238428)
 
-n_threads = 20
+n_threads = 30
 ```
 
 #Timing
@@ -409,3 +409,222 @@ Sequencing depth variation: Most samples are spread among a range of common sequ
 
 ASV richness does not distinctly read depth trends: When viewing the scatterplot, there seems to be no correlation between number sequencing depth (num sequences) and richness (num ASVs), 
 Rarefaction or normalization may definitely be needed, to hopefully standardize the read depth, as there is a range of depths. Since the plots do not suggest that richness is correlated or affected by read depth, rarefying might not have as large of an effect. What may be happening is that there may just be incredibly variable variation in snail microbiomes, but further analysis will be needed to assert what is going on.
+
+
+#Assign Taxonomy
+```{r Assign Taxonomy}
+# Assign up to genus level 
+taxa_train <- 
+  assignTaxonomy(noChimeras_ASV_table, 
+                 refFasta = "/workdir/in_class_data/taxonomy/silva_nr99_v138.2_toGenus_trainset.fa.gz", 
+                 multithread = 35)
+
+# Add the genus/species information 
+taxa_addSpecies <- 
+  addSpecies(taxa_train, 
+              refFasta = "/workdir/in_class_data/taxonomy/silva_v138.2_assignSpecies.fa.gz")
+
+# Inspect the taxonomy 
+glimpse(taxa_addSpecies) # Note that the rownames are the ASV sequences!
+```
+
+```{r remove ASV rownames for display only}
+# Let's removing the ASV sequence rownames for display only
+taxa_print <- taxa_addSpecies 
+rownames(taxa_print) <- NULL
+head(taxa_print)
+```
+
+
+#intuition check for ASV tables
+```{r intuition check for ASV tables }
+# What's the current format of the ASV table?
+head(rownames(noChimeras_ASV_table)) # Samples!
+
+head(colnames(noChimeras_ASV_table)) # ASV Sequences
+```
+
+#transpose ASV matrix
+```{r transpose ASV matrix}
+# Therefore, we need to transpose the matrix 
+final_ASV_table_withSeqs <- t(noChimeras_ASV_table)
+
+# Intuition check
+head(rownames(final_ASV_table_withSeqs)) # ASV Sequences
+
+head(colnames(final_ASV_table_withSeqs)) # Sample names
+```
+
+
+#Names in ASV tables
+```{r Names in ASV tables}
+# Remember at the top of the file we created a vector of sample names 
+head(sample_names)
+# Let's check with the actual column names 
+head(colnames(final_ASV_table_withSeqs)) # Sample names
+
+head(sapply(strsplit(colnames(final_ASV_table_withSeqs), "_"), `[`,1)) # Looks good! 
+
+# Now, add a break in the script break if this isn't true! 
+# Let's make sure the sample names match the file names in the matrix.
+stopifnot(sapply(strsplit(colnames(final_ASV_table_withSeqs), "_"), `[`,1) == sample_names)
+
+# Now, we've done some checks to prove to ourselves there will be no silent errors, 
+# Let's rename! 
+colnames(final_ASV_table_withSeqs) <- sample_names
+head(colnames(final_ASV_table_withSeqs))
+```
+
+
+#Rename ASVs
+```{r Rename ASVs}
+# Give headers more manageable names
+# First pull the ASV sequences from the rownames
+ASV_seqs <- rownames(final_ASV_table_withSeqs)
+ASV_seqs[1:5]
+
+num_ASVs <- dim(final_ASV_table_withSeqs)[1] # select the number of rows
+num_ASVs 
+
+
+# Make an empty vector the length of the number of ASVs, 
+# which is where we will place the new operational ASV names 
+ASV_headers <- vector(num_ASVs, mode = "character")
+
+# Let's mae sure we have an empty vector!
+ASV_headers[1:5]
+
+length(ASV_headers) # looks good! 
+
+
+# Now, let's create a vector with ASV numbers
+# loop through vector and fill it in with ASV names 
+for (i in 1:num_ASVs) {
+  # Add leading zero to ASV name so they print in correct order.
+  ASV_number <- sprintf("%04d", i)
+  # Now, rename each spot in the ASV header vector as we loop through the for loop
+  ASV_headers[i] <- paste(">ASV", ASV_number, sep = "_")
+}
+
+# Intuition check
+ASV_headers[1:5]
+
+
+# Create a new ASV table, which will have the ASV numbers as names 
+# View(noChimeras_ASV_table) # To view the table
+final_ASV_table <- final_ASV_table_withSeqs
+glimpse(final_ASV_table)
+
+
+## Replace the ASV seqs with the ASV numbers 
+row.names(final_ASV_table) <- sub(">", "", ASV_headers)
+final_ASV_table[1:5, 1:5]
+
+```
+
+
+# Write the ASV Tables!
+```{r Write the ASV Tables!}
+# 1. Write count table with ASV sequence names
+write.table(final_ASV_table_withSeqs, 
+            file = "data/data_filtered/ASV_table_withSeqNames.tsv", 
+            sep = "\t", quote = FALSE, col.names = NA)
+
+# 2. Write count table with ASV numbered names (e.g. ASV_1, ASV_2, etc)
+write.table(final_ASV_table, 
+            file = "data/data_filtered/ASV_table.tsv", 
+            sep = "\t", quote = FALSE, col.names = NA)
+
+```
+
+# Write the ASV Fasta File
+
+```{r Write the ASV Fasta File}
+# Let's take our asv_headers
+head(ASV_headers, n = 2)
+
+# And combine it with their sequences
+head(ASV_seqs, n = 2)
+
+# Combine in a fasta format with the cbind() function
+ASV_fasta <- c(rbind(ASV_headers, ASV_seqs))
+head(ASV_fasta, n = 4)
+
+# Then, let's write it to a fasta file!
+# This will be our reference later on for which seq matches which ASV
+write(ASV_fasta, "data/data_filtered/ASVs.fasta")
+```
+
+# Taxonomy table: reformat taxonomy
+
+```{r reformat taxonomy}
+# Inspect the taxonomy table
+dim(taxa_addSpecies) # ASVs are in rows and Kingdom, Phylum, etc in Columns 
+
+colnames(taxa_addSpecies) # Column names are Linnean Taxonomy 
+
+head(rownames(taxa_addSpecies), n = 2) # ASV names are rownames 
+
+class(taxa_addSpecies) # Character matrix
+```
+
+## Prepare taxa table 
+```{r Prepare taxa table }
+
+# 1. Add the ASV sequences from the rownames to a column 
+new_tax_table <- 
+  taxa_addSpecies%>%
+  as.data.frame() %>%
+  rownames_to_column(var = "ASVseqs") 
+
+# Intuition check 
+glimpse(new_tax_table)
+```
+
+
+```{r}
+# IMPORTANT! Let's do our intuition check 
+# This is where we ensure we don't mix up the ASV names!
+stopifnot(new_tax_table$ASVseqs == rownames(final_ASV_table_withSeqs))
+
+# Now let's add the ASV names 
+rownames(new_tax_table) <- rownames(final_ASV_table)
+head(new_tax_table)
+```
+
+#  Add new column with ASV names
+```{r  Add new column with ASV names}
+### Final prep of tax table. Add new column with ASV names 
+ASV_tax_table <- 
+  new_tax_table %>%
+  # add rownames from count table for phyloseq handoff
+  mutate(ASV = rownames(final_ASV_table)) %>%
+  # Reorder the columns
+  dplyr::select(Kingdom, Phylum, Class, Order, Family, Genus, Species, ASV, ASVseqs)
+
+# Assign the rownames, which is required by phyloseq
+rownames(ASV_tax_table) <- ASV_tax_table$ASV
+
+# Take a quick look 
+glimpse(ASV_tax_table)
+```
+
+# Sample Data
+```{r}
+# And save the track_counts_df a R object, which we will merge with metadata information in the next step of the analysis in nalysis/02_Taxonomic_Assignment. 
+save(track_counts_df, file = "data/data_filtered/track_read_counts.RData") 
+``` 
+
+#check render time
+```{r render time}
+# Take the time now that we are at the end of the script 
+end_time <- Sys.time()
+end_time   
+
+# Echo the elapsed time
+elapsed_time <- round((end_time - start_time), 3)
+elapsed_time 
+```
+
+Testing: edit while trimming 3/14
+

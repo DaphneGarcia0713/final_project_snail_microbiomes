@@ -2862,12 +2862,12 @@ Data</h1>
 <pre class="r"><code># Any number can be chosen 
 set.seed(238428)
 
-n_threads = 20</code></pre>
+n_threads = 40</code></pre>
 <p>#Timing</p>
 <pre class="r"><code># What time did we start running this script? 
 start_time &lt;- Sys.time()
 start_time</code></pre>
-<pre><code>## [1] &quot;2025-03-12 10:39:30 EDT&quot;</code></pre>
+<pre><code>## [1] &quot;2025-03-14 09:53:07 EDT&quot;</code></pre>
 <p>#Load Libraries</p>
 <pre class="r"><code>pacman::p_load(tidyverse, devtools, dada2, 
                patchwork, DT, install = FALSE)</code></pre>
@@ -3521,6 +3521,281 @@ suggest that richness is correlated or affected by read depth, rarefying
 might not have as large of an effect. What may be happening is that
 there may just be incredibly variable variation in snail microbiomes,
 but further analysis will be needed to assert what is going on.</p>
+<p>#Assign Taxonomy</p>
+<pre class="r"><code># Assign up to genus level 
+taxa_train &lt;- 
+  assignTaxonomy(noChimeras_ASV_table, 
+                 refFasta = &quot;/workdir/in_class_data/taxonomy/silva_nr99_v138.2_toGenus_trainset.fa.gz&quot;, 
+                 multithread = 35)
+
+# Add the genus/species information 
+taxa_addSpecies &lt;- 
+  addSpecies(taxa_train, 
+              refFasta = &quot;/workdir/in_class_data/taxonomy/silva_v138.2_assignSpecies.fa.gz&quot;)
+
+# Inspect the taxonomy 
+glimpse(taxa_addSpecies) # Note that the rownames are the ASV sequences!</code></pre>
+<pre><code>##  chr [1:17857, 1:7] &quot;Bacteria&quot; &quot;Bacteria&quot; &quot;Bacteria&quot; &quot;Bacteria&quot; &quot;Bacteria&quot; ...
+##  - attr(*, &quot;dimnames&quot;)=List of 2
+##   ..$ : chr [1:17857] &quot;TAGGGAATCTTCGGCAATGGACGAAAGTCTGACCGAGCAACGCCGCGTGAGTGAAGAAGGTTTTCGGATCGTAAAACTCTGTTGGTAGAGAAGAACGTTGGTGAGAGTGGA&quot;| __truncated__ &quot;TGAGGAATATTGGTCAATGGGTGCAAGCCTGAACCAGCCATCCCGCGTGAAGGACGACTGCCCTATGGGTTGTAAACTTCTTTTGTATAGGGATAAACCTCTCCTCGTGAG&quot;| __truncated__ &quot;TGGGGAATATTGCACAATGGGGGAAACCCTGATGCAGCCATGCCGCGTGTGTGAAGAAGGCCTTCGGGTTGTAAAGCACTTTCAGCGGGGAGGAAGGGGAGCAAGCTAATA&quot;| __truncated__ &quot;TGGGGAATTTTGGACAATGGGCGCAAGCCTGATCCAGCAATGCCGCGTGCAGGAAGAAGGCCTTCGGGTTGTAAACTGCTTTTGTACGGAACGAAAAGGCTCTGGTTAATA&quot;| __truncated__ ...
+##   ..$ : chr [1:7] &quot;Kingdom&quot; &quot;Phylum&quot; &quot;Class&quot; &quot;Order&quot; ...</code></pre>
+<pre class="r"><code># Let&#39;s removing the ASV sequence rownames for display only
+taxa_print &lt;- taxa_addSpecies 
+rownames(taxa_print) &lt;- NULL
+head(taxa_print)</code></pre>
+<pre><code>##      Kingdom    Phylum           Class                 Order             
+## [1,] &quot;Bacteria&quot; &quot;Bacillota&quot;      &quot;Bacilli&quot;             &quot;Lactobacillales&quot; 
+## [2,] &quot;Bacteria&quot; &quot;Bacteroidota&quot;   &quot;Bacteroidia&quot;         &quot;Flavobacteriales&quot;
+## [3,] &quot;Bacteria&quot; &quot;Pseudomonadota&quot; &quot;Gammaproteobacteria&quot; &quot;Enterobacterales&quot;
+## [4,] &quot;Bacteria&quot; &quot;Pseudomonadota&quot; &quot;Gammaproteobacteria&quot; &quot;Burkholderiales&quot; 
+## [5,] &quot;Bacteria&quot; &quot;Pseudomonadota&quot; &quot;Gammaproteobacteria&quot; &quot;Burkholderiales&quot; 
+## [6,] &quot;Bacteria&quot; &quot;Pseudomonadota&quot; &quot;Gammaproteobacteria&quot; &quot;Enterobacterales&quot;
+##      Family               Genus               Species     
+## [1,] &quot;Streptococcaceae&quot;   &quot;Lactococcus&quot;       NA          
+## [2,] &quot;Weeksellaceae&quot;      &quot;Cloacibacterium&quot;   NA          
+## [3,] &quot;Aeromonadaceae&quot;     &quot;Tolumonas&quot;         NA          
+## [4,] &quot;Comamonadaceae&quot;     &quot;Hydrogenophaga&quot;    NA          
+## [5,] &quot;Chromobacteriaceae&quot; &quot;Aquitalea&quot;         &quot;magnusonii&quot;
+## [6,] &quot;Enterobacteriaceae&quot; &quot;Pseudocitrobacter&quot; NA</code></pre>
+<p>#intuition check for ASV tables</p>
+<pre class="r"><code># What&#39;s the current format of the ASV table?
+head(rownames(noChimeras_ASV_table)) # Samples!</code></pre>
+<pre><code>## [1] &quot;SRR19509095_R1_filtered.fastq.gz&quot; &quot;SRR19509096_R1_filtered.fastq.gz&quot;
+## [3] &quot;SRR19509097_R1_filtered.fastq.gz&quot; &quot;SRR19509098_R1_filtered.fastq.gz&quot;
+## [5] &quot;SRR19509099_R1_filtered.fastq.gz&quot; &quot;SRR19509100_R1_filtered.fastq.gz&quot;</code></pre>
+<pre class="r"><code>head(colnames(noChimeras_ASV_table)) # ASV Sequences</code></pre>
+<pre><code>## [1] &quot;TAGGGAATCTTCGGCAATGGACGAAAGTCTGACCGAGCAACGCCGCGTGAGTGAAGAAGGTTTTCGGATCGTAAAACTCTGTTGGTAGAGAAGAACGTTGGTGAGAGTGGAAAGCTCATCAAGTGACGGTAACTACCCAGAAAGGGACGGCTAACTACGTGCCAGCAGCCGCGGTAATACGTAGGTCCCGAGCGTTGTCCGGATTTATTGGGCGTAAAGCGAGCGCAGGTGGTTTATTAAGTCTGGTGTAAAAGGCAGTGGCTCAACCATTGTATGCATTGGAAACTGGTAGACTTGAGTGCAGGAGAGGAGAGTGGAATTCCATGTGTAGCGGTGAAATGCGTAGATATATGGAGGAACACCGGTGGCGAAAGCGGCTCTCTGGCCTGTAACTGACACTGAGGCTCGAAAGCGTGGGGAGCAAACAGG&quot;
+## [2] &quot;TGAGGAATATTGGTCAATGGGTGCAAGCCTGAACCAGCCATCCCGCGTGAAGGACGACTGCCCTATGGGTTGTAAACTTCTTTTGTATAGGGATAAACCTCTCCTCGTGAGGAGAGCTGAAGGTACTATACGAATAAGCACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCAAGCGTTATCCGGATTTATTGGGTTTAAAGGGTCCGTAGGCGGACTTATAAGTCAGTGGTGAAAGCCTGTCGCTTAACGATAGAACTGCCATTGATACTGTAAGTCTTGAGTATATTTGAGGTAGCTGGAATAAGTAGTGTAGCGGTGAAATGCATAGATATTACTTAGAACACCAATTGCGAAGGCAGGTTACCAAGATATAACTGACGCTGAGGGACGAAAGCGTGGGGAGCGAACAGG&quot;     
+## [3] &quot;TGGGGAATATTGCACAATGGGGGAAACCCTGATGCAGCCATGCCGCGTGTGTGAAGAAGGCCTTCGGGTTGTAAAGCACTTTCAGCGGGGAGGAAGGGGAGCAAGCTAATACCTTGTTTCATTGACGTTACCCGCAGAAGAAGCACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCAAGCGTTAATCGGAATTACTGGGCGTAAAGCGCACGCAGGCGGTTGGATAAGCTAGATGTGAAAGCCCCGGGCTCAACCTGGGAATAGCATTTAGAACTGTCCGACTAGAGTCTTGTAGAGGGGGGTAGAATTCCAGGTGTAGCGGTGAAATGCGTAGAGATCTGGAGGAATACCGGTGGCGAAGGCGGCCCCCTGGACAAAGACTGACGCTCAGGTGCGAAAGCGTGGGGAGCAAACAGG&quot;
+## [4] &quot;TGGGGAATTTTGGACAATGGGCGCAAGCCTGATCCAGCAATGCCGCGTGCAGGAAGAAGGCCTTCGGGTTGTAAACTGCTTTTGTACGGAACGAAAAGGCTCTGGTTAATACCTGGGGCTCATGACGGTACCGTAAGAATAAGCACCGGCTAACTACGTGCCAGCAGCCGCGGTAATACGTAGGGTGCAAGCGTTAATCGGAATTACTGGGCGTAAAGCGTGCGCAGGCGGTGATGTAAGACAGGCGTGAAATCCCCGGGCTCAACCTGGGAATGGCGCTTGTGACTGCATCGCTGGAGTGCGGCAGAGGGGGATGGAATTCCGCGTGTAGCAGTGAAATGCGTAGATATGCGGAGGAACACCGATGGCGAAGGCAATCCCCTGGGCCTGCACTGACGCTCATGCACGAAAGCGTGGGGAGCAAACAGG&quot;
+## [5] &quot;TGGGGAATTTTGGACAATGGGCGCAAGCCTGATCCAGCCATGCCGCGTGTCTGAAGAAGGCCTTCGGGTTGTAAAGGACTTTTGTCAGGGAGGAAATCCCTAGCGCTAATATCGCTGGGGGATGACAGTACCTGAAGAATAAGCACCGGCTAACTACGTGCCAGCAGCCGCGGTAATACGTAGGGTGCAAGCGTTAATCGGAATTACTGGGCGTAAAGCGTGCGCAGGCGGTTGTGTAAGTCTGATGTGAAAGCCCCGGGCTCAACCTGGGAACTGCATTGGAGACTGCACAGCTAGAGTGCGTCAGAGGGGGGTAGAATTCCGCGTGTAGCAGTGAAATGCGTAGAGATGCGGAGGAATACCGATGGCGAAGGCAGCCCCCTGGGATGACACTGACGCTCATGCACGAAAGCGTGGGGAGCAAACAGG&quot;
+## [6] &quot;TGGGGAATATTGCACAATGGGCGCAAGCCTGATGCAGCCATGCCGCGTGTATGAAGAAGGCCTTCGGGTTGTAAAGTACTTTCAGCGAGGAGGAAGGCATTAAGGTTAATAACCTTAGTGATTGACGTTACTCGCAGAAGAAGCACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCAAGCGTTAATCGGAATTACTGGGCGTAAAGCGCACGCAGGCGGTTTGTTAAGTCAGATGTGAAATCCCCGGGCTCAACCTGGGAACTGCATTTGAAACTGGCAAGCTTGAGTCTCGTAGAGGGGGGTAGAATTCCAGGTGTAGCGGTGAAATGCGTAGAGATCTGGAGGAATACCGGTGGCGAAGGCGGCCCCCTGGACGAAGACTGACGCTCAGGTGCGAAAGCGTGGGGAGCAAACAGG&quot;</code></pre>
+<p>#transpose ASV matrix</p>
+<pre class="r"><code># Therefore, we need to transpose the matrix 
+final_ASV_table_withSeqs &lt;- t(noChimeras_ASV_table)
+
+# Intuition check
+head(rownames(final_ASV_table_withSeqs)) # ASV Sequences</code></pre>
+<pre><code>## [1] &quot;TAGGGAATCTTCGGCAATGGACGAAAGTCTGACCGAGCAACGCCGCGTGAGTGAAGAAGGTTTTCGGATCGTAAAACTCTGTTGGTAGAGAAGAACGTTGGTGAGAGTGGAAAGCTCATCAAGTGACGGTAACTACCCAGAAAGGGACGGCTAACTACGTGCCAGCAGCCGCGGTAATACGTAGGTCCCGAGCGTTGTCCGGATTTATTGGGCGTAAAGCGAGCGCAGGTGGTTTATTAAGTCTGGTGTAAAAGGCAGTGGCTCAACCATTGTATGCATTGGAAACTGGTAGACTTGAGTGCAGGAGAGGAGAGTGGAATTCCATGTGTAGCGGTGAAATGCGTAGATATATGGAGGAACACCGGTGGCGAAAGCGGCTCTCTGGCCTGTAACTGACACTGAGGCTCGAAAGCGTGGGGAGCAAACAGG&quot;
+## [2] &quot;TGAGGAATATTGGTCAATGGGTGCAAGCCTGAACCAGCCATCCCGCGTGAAGGACGACTGCCCTATGGGTTGTAAACTTCTTTTGTATAGGGATAAACCTCTCCTCGTGAGGAGAGCTGAAGGTACTATACGAATAAGCACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCAAGCGTTATCCGGATTTATTGGGTTTAAAGGGTCCGTAGGCGGACTTATAAGTCAGTGGTGAAAGCCTGTCGCTTAACGATAGAACTGCCATTGATACTGTAAGTCTTGAGTATATTTGAGGTAGCTGGAATAAGTAGTGTAGCGGTGAAATGCATAGATATTACTTAGAACACCAATTGCGAAGGCAGGTTACCAAGATATAACTGACGCTGAGGGACGAAAGCGTGGGGAGCGAACAGG&quot;     
+## [3] &quot;TGGGGAATATTGCACAATGGGGGAAACCCTGATGCAGCCATGCCGCGTGTGTGAAGAAGGCCTTCGGGTTGTAAAGCACTTTCAGCGGGGAGGAAGGGGAGCAAGCTAATACCTTGTTTCATTGACGTTACCCGCAGAAGAAGCACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCAAGCGTTAATCGGAATTACTGGGCGTAAAGCGCACGCAGGCGGTTGGATAAGCTAGATGTGAAAGCCCCGGGCTCAACCTGGGAATAGCATTTAGAACTGTCCGACTAGAGTCTTGTAGAGGGGGGTAGAATTCCAGGTGTAGCGGTGAAATGCGTAGAGATCTGGAGGAATACCGGTGGCGAAGGCGGCCCCCTGGACAAAGACTGACGCTCAGGTGCGAAAGCGTGGGGAGCAAACAGG&quot;
+## [4] &quot;TGGGGAATTTTGGACAATGGGCGCAAGCCTGATCCAGCAATGCCGCGTGCAGGAAGAAGGCCTTCGGGTTGTAAACTGCTTTTGTACGGAACGAAAAGGCTCTGGTTAATACCTGGGGCTCATGACGGTACCGTAAGAATAAGCACCGGCTAACTACGTGCCAGCAGCCGCGGTAATACGTAGGGTGCAAGCGTTAATCGGAATTACTGGGCGTAAAGCGTGCGCAGGCGGTGATGTAAGACAGGCGTGAAATCCCCGGGCTCAACCTGGGAATGGCGCTTGTGACTGCATCGCTGGAGTGCGGCAGAGGGGGATGGAATTCCGCGTGTAGCAGTGAAATGCGTAGATATGCGGAGGAACACCGATGGCGAAGGCAATCCCCTGGGCCTGCACTGACGCTCATGCACGAAAGCGTGGGGAGCAAACAGG&quot;
+## [5] &quot;TGGGGAATTTTGGACAATGGGCGCAAGCCTGATCCAGCCATGCCGCGTGTCTGAAGAAGGCCTTCGGGTTGTAAAGGACTTTTGTCAGGGAGGAAATCCCTAGCGCTAATATCGCTGGGGGATGACAGTACCTGAAGAATAAGCACCGGCTAACTACGTGCCAGCAGCCGCGGTAATACGTAGGGTGCAAGCGTTAATCGGAATTACTGGGCGTAAAGCGTGCGCAGGCGGTTGTGTAAGTCTGATGTGAAAGCCCCGGGCTCAACCTGGGAACTGCATTGGAGACTGCACAGCTAGAGTGCGTCAGAGGGGGGTAGAATTCCGCGTGTAGCAGTGAAATGCGTAGAGATGCGGAGGAATACCGATGGCGAAGGCAGCCCCCTGGGATGACACTGACGCTCATGCACGAAAGCGTGGGGAGCAAACAGG&quot;
+## [6] &quot;TGGGGAATATTGCACAATGGGCGCAAGCCTGATGCAGCCATGCCGCGTGTATGAAGAAGGCCTTCGGGTTGTAAAGTACTTTCAGCGAGGAGGAAGGCATTAAGGTTAATAACCTTAGTGATTGACGTTACTCGCAGAAGAAGCACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCAAGCGTTAATCGGAATTACTGGGCGTAAAGCGCACGCAGGCGGTTTGTTAAGTCAGATGTGAAATCCCCGGGCTCAACCTGGGAACTGCATTTGAAACTGGCAAGCTTGAGTCTCGTAGAGGGGGGTAGAATTCCAGGTGTAGCGGTGAAATGCGTAGAGATCTGGAGGAATACCGGTGGCGAAGGCGGCCCCCTGGACGAAGACTGACGCTCAGGTGCGAAAGCGTGGGGAGCAAACAGG&quot;</code></pre>
+<pre class="r"><code>head(colnames(final_ASV_table_withSeqs)) # Sample names</code></pre>
+<pre><code>## [1] &quot;SRR19509095_R1_filtered.fastq.gz&quot; &quot;SRR19509096_R1_filtered.fastq.gz&quot;
+## [3] &quot;SRR19509097_R1_filtered.fastq.gz&quot; &quot;SRR19509098_R1_filtered.fastq.gz&quot;
+## [5] &quot;SRR19509099_R1_filtered.fastq.gz&quot; &quot;SRR19509100_R1_filtered.fastq.gz&quot;</code></pre>
+<p>#Names in ASV tables</p>
+<pre class="r"><code># Remember at the top of the file we created a vector of sample names 
+head(sample_names)</code></pre>
+<pre><code>## [1] &quot;SRR19509095&quot; &quot;SRR19509096&quot; &quot;SRR19509097&quot; &quot;SRR19509098&quot; &quot;SRR19509099&quot;
+## [6] &quot;SRR19509100&quot;</code></pre>
+<pre class="r"><code># Let&#39;s check with the actual column names 
+head(colnames(final_ASV_table_withSeqs)) # Sample names</code></pre>
+<pre><code>## [1] &quot;SRR19509095_R1_filtered.fastq.gz&quot; &quot;SRR19509096_R1_filtered.fastq.gz&quot;
+## [3] &quot;SRR19509097_R1_filtered.fastq.gz&quot; &quot;SRR19509098_R1_filtered.fastq.gz&quot;
+## [5] &quot;SRR19509099_R1_filtered.fastq.gz&quot; &quot;SRR19509100_R1_filtered.fastq.gz&quot;</code></pre>
+<pre class="r"><code>head(sapply(strsplit(colnames(final_ASV_table_withSeqs), &quot;_&quot;), `[`,1)) # Looks good! </code></pre>
+<pre><code>## [1] &quot;SRR19509095&quot; &quot;SRR19509096&quot; &quot;SRR19509097&quot; &quot;SRR19509098&quot; &quot;SRR19509099&quot;
+## [6] &quot;SRR19509100&quot;</code></pre>
+<pre class="r"><code># Now, add a break in the script break if this isn&#39;t true! 
+# Let&#39;s make sure the sample names match the file names in the matrix.
+stopifnot(sapply(strsplit(colnames(final_ASV_table_withSeqs), &quot;_&quot;), `[`,1) == sample_names)
+
+# Now, we&#39;ve done some checks to prove to ourselves there will be no silent errors, 
+# Let&#39;s rename! 
+colnames(final_ASV_table_withSeqs) &lt;- sample_names
+head(colnames(final_ASV_table_withSeqs))</code></pre>
+<pre><code>## [1] &quot;SRR19509095&quot; &quot;SRR19509096&quot; &quot;SRR19509097&quot; &quot;SRR19509098&quot; &quot;SRR19509099&quot;
+## [6] &quot;SRR19509100&quot;</code></pre>
+<p>#Rename ASVs</p>
+<pre class="r"><code># Give headers more manageable names
+# First pull the ASV sequences from the rownames
+ASV_seqs &lt;- rownames(final_ASV_table_withSeqs)
+ASV_seqs[1:5]</code></pre>
+<pre><code>## [1] &quot;TAGGGAATCTTCGGCAATGGACGAAAGTCTGACCGAGCAACGCCGCGTGAGTGAAGAAGGTTTTCGGATCGTAAAACTCTGTTGGTAGAGAAGAACGTTGGTGAGAGTGGAAAGCTCATCAAGTGACGGTAACTACCCAGAAAGGGACGGCTAACTACGTGCCAGCAGCCGCGGTAATACGTAGGTCCCGAGCGTTGTCCGGATTTATTGGGCGTAAAGCGAGCGCAGGTGGTTTATTAAGTCTGGTGTAAAAGGCAGTGGCTCAACCATTGTATGCATTGGAAACTGGTAGACTTGAGTGCAGGAGAGGAGAGTGGAATTCCATGTGTAGCGGTGAAATGCGTAGATATATGGAGGAACACCGGTGGCGAAAGCGGCTCTCTGGCCTGTAACTGACACTGAGGCTCGAAAGCGTGGGGAGCAAACAGG&quot;
+## [2] &quot;TGAGGAATATTGGTCAATGGGTGCAAGCCTGAACCAGCCATCCCGCGTGAAGGACGACTGCCCTATGGGTTGTAAACTTCTTTTGTATAGGGATAAACCTCTCCTCGTGAGGAGAGCTGAAGGTACTATACGAATAAGCACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCAAGCGTTATCCGGATTTATTGGGTTTAAAGGGTCCGTAGGCGGACTTATAAGTCAGTGGTGAAAGCCTGTCGCTTAACGATAGAACTGCCATTGATACTGTAAGTCTTGAGTATATTTGAGGTAGCTGGAATAAGTAGTGTAGCGGTGAAATGCATAGATATTACTTAGAACACCAATTGCGAAGGCAGGTTACCAAGATATAACTGACGCTGAGGGACGAAAGCGTGGGGAGCGAACAGG&quot;     
+## [3] &quot;TGGGGAATATTGCACAATGGGGGAAACCCTGATGCAGCCATGCCGCGTGTGTGAAGAAGGCCTTCGGGTTGTAAAGCACTTTCAGCGGGGAGGAAGGGGAGCAAGCTAATACCTTGTTTCATTGACGTTACCCGCAGAAGAAGCACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCAAGCGTTAATCGGAATTACTGGGCGTAAAGCGCACGCAGGCGGTTGGATAAGCTAGATGTGAAAGCCCCGGGCTCAACCTGGGAATAGCATTTAGAACTGTCCGACTAGAGTCTTGTAGAGGGGGGTAGAATTCCAGGTGTAGCGGTGAAATGCGTAGAGATCTGGAGGAATACCGGTGGCGAAGGCGGCCCCCTGGACAAAGACTGACGCTCAGGTGCGAAAGCGTGGGGAGCAAACAGG&quot;
+## [4] &quot;TGGGGAATTTTGGACAATGGGCGCAAGCCTGATCCAGCAATGCCGCGTGCAGGAAGAAGGCCTTCGGGTTGTAAACTGCTTTTGTACGGAACGAAAAGGCTCTGGTTAATACCTGGGGCTCATGACGGTACCGTAAGAATAAGCACCGGCTAACTACGTGCCAGCAGCCGCGGTAATACGTAGGGTGCAAGCGTTAATCGGAATTACTGGGCGTAAAGCGTGCGCAGGCGGTGATGTAAGACAGGCGTGAAATCCCCGGGCTCAACCTGGGAATGGCGCTTGTGACTGCATCGCTGGAGTGCGGCAGAGGGGGATGGAATTCCGCGTGTAGCAGTGAAATGCGTAGATATGCGGAGGAACACCGATGGCGAAGGCAATCCCCTGGGCCTGCACTGACGCTCATGCACGAAAGCGTGGGGAGCAAACAGG&quot;
+## [5] &quot;TGGGGAATTTTGGACAATGGGCGCAAGCCTGATCCAGCCATGCCGCGTGTCTGAAGAAGGCCTTCGGGTTGTAAAGGACTTTTGTCAGGGAGGAAATCCCTAGCGCTAATATCGCTGGGGGATGACAGTACCTGAAGAATAAGCACCGGCTAACTACGTGCCAGCAGCCGCGGTAATACGTAGGGTGCAAGCGTTAATCGGAATTACTGGGCGTAAAGCGTGCGCAGGCGGTTGTGTAAGTCTGATGTGAAAGCCCCGGGCTCAACCTGGGAACTGCATTGGAGACTGCACAGCTAGAGTGCGTCAGAGGGGGGTAGAATTCCGCGTGTAGCAGTGAAATGCGTAGAGATGCGGAGGAATACCGATGGCGAAGGCAGCCCCCTGGGATGACACTGACGCTCATGCACGAAAGCGTGGGGAGCAAACAGG&quot;</code></pre>
+<pre class="r"><code>num_ASVs &lt;- dim(final_ASV_table_withSeqs)[1] # select the number of rows
+num_ASVs </code></pre>
+<pre><code>## [1] 17857</code></pre>
+<pre class="r"><code># Make an empty vector the length of the number of ASVs, 
+# which is where we will place the new operational ASV names 
+ASV_headers &lt;- vector(num_ASVs, mode = &quot;character&quot;)
+
+# Let&#39;s mae sure we have an empty vector!
+ASV_headers[1:5]</code></pre>
+<pre><code>## [1] &quot;&quot; &quot;&quot; &quot;&quot; &quot;&quot; &quot;&quot;</code></pre>
+<pre class="r"><code>length(ASV_headers) # looks good! </code></pre>
+<pre><code>## [1] 17857</code></pre>
+<pre class="r"><code># Now, let&#39;s create a vector with ASV numbers
+# loop through vector and fill it in with ASV names 
+for (i in 1:num_ASVs) {
+  # Add leading zero to ASV name so they print in correct order.
+  ASV_number &lt;- sprintf(&quot;%04d&quot;, i)
+  # Now, rename each spot in the ASV header vector as we loop through the for loop
+  ASV_headers[i] &lt;- paste(&quot;&gt;ASV&quot;, ASV_number, sep = &quot;_&quot;)
+}
+
+# Intuition check
+ASV_headers[1:5]</code></pre>
+<pre><code>## [1] &quot;&gt;ASV_0001&quot; &quot;&gt;ASV_0002&quot; &quot;&gt;ASV_0003&quot; &quot;&gt;ASV_0004&quot; &quot;&gt;ASV_0005&quot;</code></pre>
+<pre class="r"><code># Create a new ASV table, which will have the ASV numbers as names 
+# View(noChimeras_ASV_table) # To view the table
+final_ASV_table &lt;- final_ASV_table_withSeqs
+glimpse(final_ASV_table)</code></pre>
+<pre><code>##  int [1:17857, 1:60] 26765 16776 0 20 681 632 33 31 137 305 ...
+##  - attr(*, &quot;dimnames&quot;)=List of 2
+##   ..$ : chr [1:17857] &quot;TAGGGAATCTTCGGCAATGGACGAAAGTCTGACCGAGCAACGCCGCGTGAGTGAAGAAGGTTTTCGGATCGTAAAACTCTGTTGGTAGAGAAGAACGTTGGTGAGAGTGGA&quot;| __truncated__ &quot;TGAGGAATATTGGTCAATGGGTGCAAGCCTGAACCAGCCATCCCGCGTGAAGGACGACTGCCCTATGGGTTGTAAACTTCTTTTGTATAGGGATAAACCTCTCCTCGTGAG&quot;| __truncated__ &quot;TGGGGAATATTGCACAATGGGGGAAACCCTGATGCAGCCATGCCGCGTGTGTGAAGAAGGCCTTCGGGTTGTAAAGCACTTTCAGCGGGGAGGAAGGGGAGCAAGCTAATA&quot;| __truncated__ &quot;TGGGGAATTTTGGACAATGGGCGCAAGCCTGATCCAGCAATGCCGCGTGCAGGAAGAAGGCCTTCGGGTTGTAAACTGCTTTTGTACGGAACGAAAAGGCTCTGGTTAATA&quot;| __truncated__ ...
+##   ..$ : chr [1:60] &quot;SRR19509095&quot; &quot;SRR19509096&quot; &quot;SRR19509097&quot; &quot;SRR19509098&quot; ...</code></pre>
+<pre class="r"><code>## Replace the ASV seqs with the ASV numbers 
+row.names(final_ASV_table) &lt;- sub(&quot;&gt;&quot;, &quot;&quot;, ASV_headers)
+final_ASV_table[1:5, 1:5]</code></pre>
+<pre><code>##          SRR19509095 SRR19509096 SRR19509097 SRR19509098 SRR19509099
+## ASV_0001       26765       19830       22068       15692       12548
+## ASV_0002       16776        7469       10413        7036        1461
+## ASV_0003           0         289          24           0         155
+## ASV_0004          20        1241          21          29          26
+## ASV_0005         681        1038        3096        1767        2187</code></pre>
+</div>
+<div id="write-the-asv-tables" class="section level1">
+<h1>Write the ASV Tables!</h1>
+<pre class="r"><code># 1. Write count table with ASV sequence names
+write.table(final_ASV_table_withSeqs, 
+            file = &quot;data/data_filtered/ASV_table_withSeqNames.tsv&quot;, 
+            sep = &quot;\t&quot;, quote = FALSE, col.names = NA)
+
+# 2. Write count table with ASV numbered names (e.g. ASV_1, ASV_2, etc)
+write.table(final_ASV_table, 
+            file = &quot;data/data_filtered/ASV_table.tsv&quot;, 
+            sep = &quot;\t&quot;, quote = FALSE, col.names = NA)</code></pre>
+</div>
+<div id="write-the-asv-fasta-file" class="section level1">
+<h1>Write the ASV Fasta File</h1>
+<pre class="r"><code># Let&#39;s take our asv_headers
+head(ASV_headers, n = 2)</code></pre>
+<pre><code>## [1] &quot;&gt;ASV_0001&quot; &quot;&gt;ASV_0002&quot;</code></pre>
+<pre class="r"><code># And combine it with their sequences
+head(ASV_seqs, n = 2)</code></pre>
+<pre><code>## [1] &quot;TAGGGAATCTTCGGCAATGGACGAAAGTCTGACCGAGCAACGCCGCGTGAGTGAAGAAGGTTTTCGGATCGTAAAACTCTGTTGGTAGAGAAGAACGTTGGTGAGAGTGGAAAGCTCATCAAGTGACGGTAACTACCCAGAAAGGGACGGCTAACTACGTGCCAGCAGCCGCGGTAATACGTAGGTCCCGAGCGTTGTCCGGATTTATTGGGCGTAAAGCGAGCGCAGGTGGTTTATTAAGTCTGGTGTAAAAGGCAGTGGCTCAACCATTGTATGCATTGGAAACTGGTAGACTTGAGTGCAGGAGAGGAGAGTGGAATTCCATGTGTAGCGGTGAAATGCGTAGATATATGGAGGAACACCGGTGGCGAAAGCGGCTCTCTGGCCTGTAACTGACACTGAGGCTCGAAAGCGTGGGGAGCAAACAGG&quot;
+## [2] &quot;TGAGGAATATTGGTCAATGGGTGCAAGCCTGAACCAGCCATCCCGCGTGAAGGACGACTGCCCTATGGGTTGTAAACTTCTTTTGTATAGGGATAAACCTCTCCTCGTGAGGAGAGCTGAAGGTACTATACGAATAAGCACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCAAGCGTTATCCGGATTTATTGGGTTTAAAGGGTCCGTAGGCGGACTTATAAGTCAGTGGTGAAAGCCTGTCGCTTAACGATAGAACTGCCATTGATACTGTAAGTCTTGAGTATATTTGAGGTAGCTGGAATAAGTAGTGTAGCGGTGAAATGCATAGATATTACTTAGAACACCAATTGCGAAGGCAGGTTACCAAGATATAACTGACGCTGAGGGACGAAAGCGTGGGGAGCGAACAGG&quot;</code></pre>
+<pre class="r"><code># Combine in a fasta format with the cbind() function
+ASV_fasta &lt;- c(rbind(ASV_headers, ASV_seqs))
+head(ASV_fasta, n = 4)</code></pre>
+<pre><code>## [1] &quot;&gt;ASV_0001&quot;                                                                                                                                                                                                                                                                                                                                                                                                                                    
+## [2] &quot;TAGGGAATCTTCGGCAATGGACGAAAGTCTGACCGAGCAACGCCGCGTGAGTGAAGAAGGTTTTCGGATCGTAAAACTCTGTTGGTAGAGAAGAACGTTGGTGAGAGTGGAAAGCTCATCAAGTGACGGTAACTACCCAGAAAGGGACGGCTAACTACGTGCCAGCAGCCGCGGTAATACGTAGGTCCCGAGCGTTGTCCGGATTTATTGGGCGTAAAGCGAGCGCAGGTGGTTTATTAAGTCTGGTGTAAAAGGCAGTGGCTCAACCATTGTATGCATTGGAAACTGGTAGACTTGAGTGCAGGAGAGGAGAGTGGAATTCCATGTGTAGCGGTGAAATGCGTAGATATATGGAGGAACACCGGTGGCGAAAGCGGCTCTCTGGCCTGTAACTGACACTGAGGCTCGAAAGCGTGGGGAGCAAACAGG&quot;
+## [3] &quot;&gt;ASV_0002&quot;                                                                                                                                                                                                                                                                                                                                                                                                                                    
+## [4] &quot;TGAGGAATATTGGTCAATGGGTGCAAGCCTGAACCAGCCATCCCGCGTGAAGGACGACTGCCCTATGGGTTGTAAACTTCTTTTGTATAGGGATAAACCTCTCCTCGTGAGGAGAGCTGAAGGTACTATACGAATAAGCACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCAAGCGTTATCCGGATTTATTGGGTTTAAAGGGTCCGTAGGCGGACTTATAAGTCAGTGGTGAAAGCCTGTCGCTTAACGATAGAACTGCCATTGATACTGTAAGTCTTGAGTATATTTGAGGTAGCTGGAATAAGTAGTGTAGCGGTGAAATGCATAGATATTACTTAGAACACCAATTGCGAAGGCAGGTTACCAAGATATAACTGACGCTGAGGGACGAAAGCGTGGGGAGCGAACAGG&quot;</code></pre>
+<pre class="r"><code># Then, let&#39;s write it to a fasta file!
+# This will be our reference later on for which seq matches which ASV
+write(ASV_fasta, &quot;data/data_filtered/ASVs.fasta&quot;)</code></pre>
+</div>
+<div id="taxonomy-table-reformat-taxonomy" class="section level1">
+<h1>Taxonomy table: reformat taxonomy</h1>
+<pre class="r"><code># Inspect the taxonomy table
+dim(taxa_addSpecies) # ASVs are in rows and Kingdom, Phylum, etc in Columns </code></pre>
+<pre><code>## [1] 17857     7</code></pre>
+<pre class="r"><code>colnames(taxa_addSpecies) # Column names are Linnean Taxonomy </code></pre>
+<pre><code>## [1] &quot;Kingdom&quot; &quot;Phylum&quot;  &quot;Class&quot;   &quot;Order&quot;   &quot;Family&quot;  &quot;Genus&quot;   &quot;Species&quot;</code></pre>
+<pre class="r"><code>head(rownames(taxa_addSpecies), n = 2) # ASV names are rownames </code></pre>
+<pre><code>## [1] &quot;TAGGGAATCTTCGGCAATGGACGAAAGTCTGACCGAGCAACGCCGCGTGAGTGAAGAAGGTTTTCGGATCGTAAAACTCTGTTGGTAGAGAAGAACGTTGGTGAGAGTGGAAAGCTCATCAAGTGACGGTAACTACCCAGAAAGGGACGGCTAACTACGTGCCAGCAGCCGCGGTAATACGTAGGTCCCGAGCGTTGTCCGGATTTATTGGGCGTAAAGCGAGCGCAGGTGGTTTATTAAGTCTGGTGTAAAAGGCAGTGGCTCAACCATTGTATGCATTGGAAACTGGTAGACTTGAGTGCAGGAGAGGAGAGTGGAATTCCATGTGTAGCGGTGAAATGCGTAGATATATGGAGGAACACCGGTGGCGAAAGCGGCTCTCTGGCCTGTAACTGACACTGAGGCTCGAAAGCGTGGGGAGCAAACAGG&quot;
+## [2] &quot;TGAGGAATATTGGTCAATGGGTGCAAGCCTGAACCAGCCATCCCGCGTGAAGGACGACTGCCCTATGGGTTGTAAACTTCTTTTGTATAGGGATAAACCTCTCCTCGTGAGGAGAGCTGAAGGTACTATACGAATAAGCACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCAAGCGTTATCCGGATTTATTGGGTTTAAAGGGTCCGTAGGCGGACTTATAAGTCAGTGGTGAAAGCCTGTCGCTTAACGATAGAACTGCCATTGATACTGTAAGTCTTGAGTATATTTGAGGTAGCTGGAATAAGTAGTGTAGCGGTGAAATGCATAGATATTACTTAGAACACCAATTGCGAAGGCAGGTTACCAAGATATAACTGACGCTGAGGGACGAAAGCGTGGGGAGCGAACAGG&quot;</code></pre>
+<pre class="r"><code>class(taxa_addSpecies) # Character matrix</code></pre>
+<pre><code>## [1] &quot;matrix&quot; &quot;array&quot;</code></pre>
+<div id="prepare-taxa-table" class="section level2">
+<h2>Prepare taxa table</h2>
+<pre class="r"><code># 1. Add the ASV sequences from the rownames to a column 
+new_tax_table &lt;- 
+  taxa_addSpecies%&gt;%
+  as.data.frame() %&gt;%
+  rownames_to_column(var = &quot;ASVseqs&quot;) 
+
+# Intuition check 
+glimpse(new_tax_table)</code></pre>
+<pre><code>## Rows: 17,857
+## Columns: 8
+## $ ASVseqs &lt;chr&gt; &quot;TAGGGAATCTTCGGCAATGGACGAAAGTCTGACCGAGCAACGCCGCGTGAGTGAAGAAGGT…
+## $ Kingdom &lt;chr&gt; &quot;Bacteria&quot;, &quot;Bacteria&quot;, &quot;Bacteria&quot;, &quot;Bacteria&quot;, &quot;Bacteria&quot;, &quot;B…
+## $ Phylum  &lt;chr&gt; &quot;Bacillota&quot;, &quot;Bacteroidota&quot;, &quot;Pseudomonadota&quot;, &quot;Pseudomonadota…
+## $ Class   &lt;chr&gt; &quot;Bacilli&quot;, &quot;Bacteroidia&quot;, &quot;Gammaproteobacteria&quot;, &quot;Gammaproteob…
+## $ Order   &lt;chr&gt; &quot;Lactobacillales&quot;, &quot;Flavobacteriales&quot;, &quot;Enterobacterales&quot;, &quot;Bu…
+## $ Family  &lt;chr&gt; &quot;Streptococcaceae&quot;, &quot;Weeksellaceae&quot;, &quot;Aeromonadaceae&quot;, &quot;Comamo…
+## $ Genus   &lt;chr&gt; &quot;Lactococcus&quot;, &quot;Cloacibacterium&quot;, &quot;Tolumonas&quot;, &quot;Hydrogenophaga…
+## $ Species &lt;chr&gt; NA, NA, NA, NA, &quot;magnusonii&quot;, NA, NA, &quot;paludis&quot;, NA, NA, NA, N…</code></pre>
+<pre class="r"><code># IMPORTANT! Let&#39;s do our intuition check 
+# This is where we ensure we don&#39;t mix up the ASV names!
+stopifnot(new_tax_table$ASVseqs == rownames(final_ASV_table_withSeqs))
+
+# Now let&#39;s add the ASV names 
+rownames(new_tax_table) &lt;- rownames(final_ASV_table)
+head(new_tax_table)</code></pre>
+<pre><code>##                                                                                                                                                                                                                                                                                                                                                                                                                                                ASVseqs
+## ASV_0001 TAGGGAATCTTCGGCAATGGACGAAAGTCTGACCGAGCAACGCCGCGTGAGTGAAGAAGGTTTTCGGATCGTAAAACTCTGTTGGTAGAGAAGAACGTTGGTGAGAGTGGAAAGCTCATCAAGTGACGGTAACTACCCAGAAAGGGACGGCTAACTACGTGCCAGCAGCCGCGGTAATACGTAGGTCCCGAGCGTTGTCCGGATTTATTGGGCGTAAAGCGAGCGCAGGTGGTTTATTAAGTCTGGTGTAAAAGGCAGTGGCTCAACCATTGTATGCATTGGAAACTGGTAGACTTGAGTGCAGGAGAGGAGAGTGGAATTCCATGTGTAGCGGTGAAATGCGTAGATATATGGAGGAACACCGGTGGCGAAAGCGGCTCTCTGGCCTGTAACTGACACTGAGGCTCGAAAGCGTGGGGAGCAAACAGG
+## ASV_0002      TGAGGAATATTGGTCAATGGGTGCAAGCCTGAACCAGCCATCCCGCGTGAAGGACGACTGCCCTATGGGTTGTAAACTTCTTTTGTATAGGGATAAACCTCTCCTCGTGAGGAGAGCTGAAGGTACTATACGAATAAGCACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCAAGCGTTATCCGGATTTATTGGGTTTAAAGGGTCCGTAGGCGGACTTATAAGTCAGTGGTGAAAGCCTGTCGCTTAACGATAGAACTGCCATTGATACTGTAAGTCTTGAGTATATTTGAGGTAGCTGGAATAAGTAGTGTAGCGGTGAAATGCATAGATATTACTTAGAACACCAATTGCGAAGGCAGGTTACCAAGATATAACTGACGCTGAGGGACGAAAGCGTGGGGAGCGAACAGG
+## ASV_0003 TGGGGAATATTGCACAATGGGGGAAACCCTGATGCAGCCATGCCGCGTGTGTGAAGAAGGCCTTCGGGTTGTAAAGCACTTTCAGCGGGGAGGAAGGGGAGCAAGCTAATACCTTGTTTCATTGACGTTACCCGCAGAAGAAGCACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCAAGCGTTAATCGGAATTACTGGGCGTAAAGCGCACGCAGGCGGTTGGATAAGCTAGATGTGAAAGCCCCGGGCTCAACCTGGGAATAGCATTTAGAACTGTCCGACTAGAGTCTTGTAGAGGGGGGTAGAATTCCAGGTGTAGCGGTGAAATGCGTAGAGATCTGGAGGAATACCGGTGGCGAAGGCGGCCCCCTGGACAAAGACTGACGCTCAGGTGCGAAAGCGTGGGGAGCAAACAGG
+## ASV_0004 TGGGGAATTTTGGACAATGGGCGCAAGCCTGATCCAGCAATGCCGCGTGCAGGAAGAAGGCCTTCGGGTTGTAAACTGCTTTTGTACGGAACGAAAAGGCTCTGGTTAATACCTGGGGCTCATGACGGTACCGTAAGAATAAGCACCGGCTAACTACGTGCCAGCAGCCGCGGTAATACGTAGGGTGCAAGCGTTAATCGGAATTACTGGGCGTAAAGCGTGCGCAGGCGGTGATGTAAGACAGGCGTGAAATCCCCGGGCTCAACCTGGGAATGGCGCTTGTGACTGCATCGCTGGAGTGCGGCAGAGGGGGATGGAATTCCGCGTGTAGCAGTGAAATGCGTAGATATGCGGAGGAACACCGATGGCGAAGGCAATCCCCTGGGCCTGCACTGACGCTCATGCACGAAAGCGTGGGGAGCAAACAGG
+## ASV_0005 TGGGGAATTTTGGACAATGGGCGCAAGCCTGATCCAGCCATGCCGCGTGTCTGAAGAAGGCCTTCGGGTTGTAAAGGACTTTTGTCAGGGAGGAAATCCCTAGCGCTAATATCGCTGGGGGATGACAGTACCTGAAGAATAAGCACCGGCTAACTACGTGCCAGCAGCCGCGGTAATACGTAGGGTGCAAGCGTTAATCGGAATTACTGGGCGTAAAGCGTGCGCAGGCGGTTGTGTAAGTCTGATGTGAAAGCCCCGGGCTCAACCTGGGAACTGCATTGGAGACTGCACAGCTAGAGTGCGTCAGAGGGGGGTAGAATTCCGCGTGTAGCAGTGAAATGCGTAGAGATGCGGAGGAATACCGATGGCGAAGGCAGCCCCCTGGGATGACACTGACGCTCATGCACGAAAGCGTGGGGAGCAAACAGG
+## ASV_0006 TGGGGAATATTGCACAATGGGCGCAAGCCTGATGCAGCCATGCCGCGTGTATGAAGAAGGCCTTCGGGTTGTAAAGTACTTTCAGCGAGGAGGAAGGCATTAAGGTTAATAACCTTAGTGATTGACGTTACTCGCAGAAGAAGCACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCAAGCGTTAATCGGAATTACTGGGCGTAAAGCGCACGCAGGCGGTTTGTTAAGTCAGATGTGAAATCCCCGGGCTCAACCTGGGAACTGCATTTGAAACTGGCAAGCTTGAGTCTCGTAGAGGGGGGTAGAATTCCAGGTGTAGCGGTGAAATGCGTAGAGATCTGGAGGAATACCGGTGGCGAAGGCGGCCCCCTGGACGAAGACTGACGCTCAGGTGCGAAAGCGTGGGGAGCAAACAGG
+##           Kingdom         Phylum               Class            Order
+## ASV_0001 Bacteria      Bacillota             Bacilli  Lactobacillales
+## ASV_0002 Bacteria   Bacteroidota         Bacteroidia Flavobacteriales
+## ASV_0003 Bacteria Pseudomonadota Gammaproteobacteria Enterobacterales
+## ASV_0004 Bacteria Pseudomonadota Gammaproteobacteria  Burkholderiales
+## ASV_0005 Bacteria Pseudomonadota Gammaproteobacteria  Burkholderiales
+## ASV_0006 Bacteria Pseudomonadota Gammaproteobacteria Enterobacterales
+##                      Family             Genus    Species
+## ASV_0001   Streptococcaceae       Lactococcus       &lt;NA&gt;
+## ASV_0002      Weeksellaceae   Cloacibacterium       &lt;NA&gt;
+## ASV_0003     Aeromonadaceae         Tolumonas       &lt;NA&gt;
+## ASV_0004     Comamonadaceae    Hydrogenophaga       &lt;NA&gt;
+## ASV_0005 Chromobacteriaceae         Aquitalea magnusonii
+## ASV_0006 Enterobacteriaceae Pseudocitrobacter       &lt;NA&gt;</code></pre>
+</div>
+</div>
+<div id="add-new-column-with-asv-names" class="section level1">
+<h1>Add new column with ASV names</h1>
+<pre class="r"><code>### Final prep of tax table. Add new column with ASV names 
+ASV_tax_table &lt;- 
+  new_tax_table %&gt;%
+  # add rownames from count table for phyloseq handoff
+  mutate(ASV = rownames(final_ASV_table)) %&gt;%
+  # Reorder the columns
+  dplyr::select(Kingdom, Phylum, Class, Order, Family, Genus, Species, ASV, ASVseqs)
+
+# Assign the rownames, which is required by phyloseq
+rownames(ASV_tax_table) &lt;- ASV_tax_table$ASV
+
+# Take a quick look 
+glimpse(ASV_tax_table)</code></pre>
+<pre><code>## Rows: 17,857
+## Columns: 9
+## $ Kingdom &lt;chr&gt; &quot;Bacteria&quot;, &quot;Bacteria&quot;, &quot;Bacteria&quot;, &quot;Bacteria&quot;, &quot;Bacteria&quot;, &quot;B…
+## $ Phylum  &lt;chr&gt; &quot;Bacillota&quot;, &quot;Bacteroidota&quot;, &quot;Pseudomonadota&quot;, &quot;Pseudomonadota…
+## $ Class   &lt;chr&gt; &quot;Bacilli&quot;, &quot;Bacteroidia&quot;, &quot;Gammaproteobacteria&quot;, &quot;Gammaproteob…
+## $ Order   &lt;chr&gt; &quot;Lactobacillales&quot;, &quot;Flavobacteriales&quot;, &quot;Enterobacterales&quot;, &quot;Bu…
+## $ Family  &lt;chr&gt; &quot;Streptococcaceae&quot;, &quot;Weeksellaceae&quot;, &quot;Aeromonadaceae&quot;, &quot;Comamo…
+## $ Genus   &lt;chr&gt; &quot;Lactococcus&quot;, &quot;Cloacibacterium&quot;, &quot;Tolumonas&quot;, &quot;Hydrogenophaga…
+## $ Species &lt;chr&gt; NA, NA, NA, NA, &quot;magnusonii&quot;, NA, NA, &quot;paludis&quot;, NA, NA, NA, N…
+## $ ASV     &lt;chr&gt; &quot;ASV_0001&quot;, &quot;ASV_0002&quot;, &quot;ASV_0003&quot;, &quot;ASV_0004&quot;, &quot;ASV_0005&quot;, &quot;A…
+## $ ASVseqs &lt;chr&gt; &quot;TAGGGAATCTTCGGCAATGGACGAAAGTCTGACCGAGCAACGCCGCGTGAGTGAAGAAGGT…</code></pre>
+</div>
+<div id="sample-data" class="section level1">
+<h1>Sample Data</h1>
+<pre class="r"><code># And save the track_counts_df a R object, which we will merge with metadata information in the next step of the analysis in nalysis/02_Taxonomic_Assignment. 
+save(track_counts_df, file = &quot;data/data_filtered/track_read_counts.RData&quot;) </code></pre>
+<p>#check render time</p>
+<pre class="r"><code># Take the time now that we are at the end of the script 
+end_time &lt;- Sys.time()
+end_time   </code></pre>
+<pre><code>## [1] &quot;2025-03-14 10:38:38 EDT&quot;</code></pre>
+<pre class="r"><code># Echo the elapsed time
+elapsed_time &lt;- round((end_time - start_time), 3)
+elapsed_time </code></pre>
+<pre><code>## Time difference of 45.511 mins</code></pre>
+<p>Testing: edit while trimming 3/14</p>
 </div>
 
 
