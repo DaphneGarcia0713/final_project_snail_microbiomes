@@ -14,7 +14,7 @@ editor_options:
 # Any number can be chosen 
 set.seed(238428)
 
-n_threads = 30
+n_threads = 35
 ```
 
 #Timing
@@ -67,9 +67,9 @@ head(sample_names)
 error_forward_reads <- 
   learnErrors(filtered_forward_reads, multithread = n_threads)
 
-forward_error_plot <- 
-  plotErrors(error_forward_reads, nominalQ = TRUE) + 
-  labs(title = "Forward Reads: Error Model")
+#forward_error_plot <- 
+#  plotErrors(error_forward_reads, nominalQ = TRUE) + 
+#  labs(title = "Forward Reads: Error Model")
 
 
 
@@ -77,13 +77,13 @@ forward_error_plot <-
 error_reverse_reads <- 
   learnErrors(filtered_reverse_reads, multithread = n_threads)
 
-reverse_error_plot <- 
-  plotErrors(error_reverse_reads, nominalQ = TRUE) + 
-  labs(title = "Reverse Reads: Error Model")
+#reverse_error_plot <- 
+#  plotErrors(error_reverse_reads, nominalQ = TRUE) + 
+#  labs(title = "Reverse Reads: Error Model")
 
 
 # Look at the plots together 
-forward_error_plot + reverse_error_plot
+#forward_error_plot + reverse_error_plot
 ```
 
 # Infer ASVs on forward sequences
@@ -96,9 +96,9 @@ dada_forward <-
 ```
 ## Intuition checks for forward ASVs infererence
 ```{r}
-typeof(dada_forward) # It's a list 
-length(dada_forward) # How big is it? One per sample!
-dada_forward$`SRR19509095_R1_filtered.fastq.gz` #D note: name of first of list
+#typeof(dada_forward) # It's a list 
+#length(dada_forward) # How big is it? One per sample!
+#dada_forward$`SRR19509095_R1_filtered.fastq.gz` #D note: name of first of list
 ```
 
 # Infer ASVs on reverse sequences
@@ -106,14 +106,14 @@ dada_forward$`SRR19509095_R1_filtered.fastq.gz` #D note: name of first of list
 dada_reverse <- 
   dada(filtered_reverse_reads,
        err = error_reverse_reads ,
-       multithread = n_threads)
+       multithread = 40)
 ```
 
 ## Intuition checks for reverse ASVs infererence
 ```{r}
-typeof(dada_reverse) # It's a list 
-length(dada_reverse) # How big is it? One per sample!
-dada_reverse$`SRR19509095_R2_filtered.fastq.gz` #D note: name of first of list
+#typeof(dada_reverse) # It's a list 
+#length(dada_reverse) # How big is it? One per sample!
+#dada_reverse$`SRR19509095_R2_filtered.fastq.gz` #D note: name of first of list
 ```
 
 # Merge Forward and Reverse ASVs
@@ -127,15 +127,15 @@ merged_ASVs <-
 
 ## Intuition checks for merging
 ```{r}
-typeof(merged_ASVs) # It's a list 
-length(merged_ASVs) # How big is it? One per sample!
-head(names(merged_ASVs)) # Here, we can access our current sample names (all R1)
+#typeof(merged_ASVs) # It's a list 
+#length(merged_ASVs) # How big is it? One per sample!
+#head(names(merged_ASVs)) # Here, we can access our current sample names (all R1)
 
 
 # Inspect further for each sample
 #head(merged_ASVs, n = 2) # A dataframe for each sample
 # We have a dataframe in each part of our list! What are in the columns? 
-glimpse(merged_ASVs$`SRR19509149_R1_filtered.fastq.gz`)
+#glimpse(merged_ASVs$`SRR19509149_R1_filtered.fastq.gz`)
 ```
 
 
@@ -145,14 +145,14 @@ glimpse(merged_ASVs$`SRR19509149_R1_filtered.fastq.gz`)
 raw_ASV_table <- makeSequenceTable(merged_ASVs)
 
 # Intuition Check: Type and dimensions of the data
-dim(raw_ASV_table)
+#dim(raw_ASV_table)
 
-typeof(raw_ASV_table)
-class(raw_ASV_table)
+#typeof(raw_ASV_table)
+#class(raw_ASV_table)
 
 # write out raw_asv_table 
-write.table(raw_ASV_table, file = "data/data_filtered/raw_ASV_counts.tsv",
-            sep = "\t", quote = FALSE, col.names = NA)
+#write.table(raw_ASV_table, file = "data/data_filtered/raw_ASV_counts.tsv",
+ #           sep = "\t", quote = FALSE, col.names = NA)
 ```
 
 
@@ -183,23 +183,23 @@ meanLength_ASV <- mean(nchar(getSequences(raw_ASV_table)))
 medianLength_ASV <- median(nchar(getSequences(raw_ASV_table))) 
 
 # Create a table to Inspect the distribution of sequence lengths of all ASVs in dataset 
-table(nchar(getSequences(raw_ASV_table)))
+#table(nchar(getSequences(raw_ASV_table)))
 ```
 
 # ASV length plot RAW
 ```{r}
 # Inspect the distribution of sequence lengths of all ASVs in data set 
 # AFTER TRIM
-plot_ASVLength_raw <- 
-  data.frame(Seq_Length = nchar(getSequences(raw_ASV_table))) %>%
-  ggplot(aes(x = Seq_Length )) + 
-  geom_histogram() + 
-  # include the x-axis scales
-  scale_x_continuous(limits = c(0, maxLength_ASV + 5)) + 
-  labs(y = "Number of ASVs", x = "Raw ASV Length (bps)")
-
-# Show the plot
-plot_ASVLength_raw
+# plot_ASVLength_raw <- 
+#   data.frame(Seq_Length = nchar(getSequences(raw_ASV_table))) %>%
+#   ggplot(aes(x = Seq_Length )) + 
+#   geom_histogram() + 
+#   # include the x-axis scales
+#   scale_x_continuous(limits = c(0, maxLength_ASV + 5)) + 
+#   labs(y = "Number of ASVs", x = "Raw ASV Length (bps)")
+# 
+# # Show the plot
+# plot_ASVLength_raw
 ```
 
 INTERPRETATION #2
@@ -232,17 +232,17 @@ When I trim a range between 424 and 430 (424 has 12K and 430 has 9k ASVs), perce
 # Inspect distribution of seq lengths after trim
 ```{r}
 # Inspect the distribution of sequence lengths of all ASVs in dataset 
-# AFTER TRIM
-plot_ASVLength_trimmed <- 
-  data.frame(Seq_Length = nchar(getSequences(raw_ASV_table_trimmed))) %>%
-  ggplot(aes(x = Seq_Length )) + 
-  geom_histogram() + 
-  # include the x-axis scales
-  scale_x_continuous(limits = c(0, maxLength_ASV + 5)) + 
-  labs(y = "Number of ASVs", x = "Trimmed ASV Length (bps)")
-
-# Show the plot 
-plot_ASVLength_trimmed
+# # AFTER TRIM
+# plot_ASVLength_trimmed <- 
+#   data.frame(Seq_Length = nchar(getSequences(raw_ASV_table_trimmed))) %>%
+#   ggplot(aes(x = Seq_Length )) + 
+#   geom_histogram() + 
+#   # include the x-axis scales
+#   scale_x_continuous(limits = c(0, maxLength_ASV + 5)) + 
+#   labs(y = "Number of ASVs", x = "Trimmed ASV Length (bps)")
+# 
+# # Show the plot 
+# plot_ASVLength_trimmed
 
 ```
 
@@ -273,17 +273,17 @@ Chimera removal compared to raw   0.6702
 
 ```{r}
 # Plot it 
-plot_ASVLength_NoChimeras <- 
-  data.frame(Seq_Length_NoChim = nchar(getSequences(noChimeras_ASV_table))) %>%
-  ggplot(aes(x = Seq_Length_NoChim )) + 
-  geom_histogram()+ 
-  # include the x-axis scales
-  scale_x_continuous(limits = c(0, maxLength_ASV + 5)) + 
-  labs(y = "Number of ASVs \n (Post-Chimera Removal)", 
-       x = "ASV Length (bps)")
-
-# Show the plot
-plot_ASVLength_NoChimeras 
+# plot_ASVLength_NoChimeras <- 
+#   data.frame(Seq_Length_NoChim = nchar(getSequences(noChimeras_ASV_table))) %>%
+#   ggplot(aes(x = Seq_Length_NoChim )) + 
+#   geom_histogram()+ 
+#   # include the x-axis scales
+#   scale_x_continuous(limits = c(0, maxLength_ASV + 5)) + 
+#   labs(y = "Number of ASVs \n (Post-Chimera Removal)", 
+#        x = "ASV Length (bps)")
+# 
+# # Show the plot
+# plot_ASVLength_NoChimeras 
 ```
 INTERPRETATION #4
 
@@ -607,7 +607,22 @@ rownames(ASV_tax_table) <- ASV_tax_table$ASV
 
 # Take a quick look 
 glimpse(ASV_tax_table)
+
+# Intution check
+stopifnot(ASV_tax_table$ASV == rownames(ASV_tax_table), 
+          rownames(ASV_tax_table) == rownames(ASV_tax_table))
 ```
+
+
+## WRite taxonomy table
+```{r write taxonomy table}
+# Write the table 
+write.table(ASV_tax_table, 
+            file = "data/data_filtered/ASV_taxonomy.tsv", 
+            sep = "\t", quote = FALSE, col.names = NA)
+```
+
+
 
 # Sample Data
 ```{r}
