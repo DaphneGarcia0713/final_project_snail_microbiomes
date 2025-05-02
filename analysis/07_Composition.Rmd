@@ -1,0 +1,880 @@
+---
+title: "Taxonomic Composition and Abundance analysis of snail gut microbiome with temperature and sex variables"
+author: "Daphne Garcia"
+date: "2025-04-23"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Goals
+In this file, I performed compositional analysis of the scaled/noramlized/rarefied snail intestinal-microbiome dataset.
+
+1. Calculate the relative abundances of taxonomic groups at various levels: 
+  A. Phylum B. Genus C. ASV
+  against variables temperature and sex
+
+2. Plot Phylum and ASV level for Pseudomonadota, Bacillota, Bacteroidetes, Lactococcus, Enterobacter, and Eurkholderia
+
+Hypotheses:
+
+HA1: The abundance of pathogenic Pseudomonadota taxa will be higher in the high-temperature groups compared to control and low temperatures
+
+
+HA2: The abundance of immune-related Bacillota and Bacteroidetes taxa will be lower in the high-temperature groups compared to control and low temperatures
+
+H0: There will be no difference in abundance of any taxa in the high-temperature groups compared to control and low temperatures
+
+### Inputs
+scaled_physeq.RData:  a rooted tree from `06_Ordination.rmd`.
+
+### Outputs
+microbial taxa abundance plots against temperature and sex, with statistical testing
+
+
+
+
+INTERPRETATION #1: What are the limitations of interpreting microbial abundance from relative (aka. compositional) rather than absolute counts?
+
+The main limitation of using relative abundance instead of absolute abundance is that we are unable to truly compare different datasets against one another. Unlike absolute counts, the size of a sample and the relative abundance of other taxa have a large weight on the measurement of relative abudnance. Specifically if we are looking at datasets across time, temperature, salinity, or another gradients, a signal that may appear to be an increase or decrease in abundance of a specific phyla may be falsely impacted by a difference in the sizes of the samples, or even by a large change in abundance from another phyla. For example, a specific taxonomic group may appear to decline in relative abundance simply because another taxon increased in abundance, not because the first one actually decreased. 
+
+
+```{r setup_pt1, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.path = "figures/07_Composition/")
+
+# Load in the packages 
+pacman::p_load(tidyverse, devtools, ggpubr, DT, phyloseq, patchwork, 
+               install = FALSE)
+
+# load colors
+source("code/colors.R")
+```
+
+# Load in Scaled Phyloseq object
+```{r load_physeq_obj}
+load("data/06_Ordination/scaled_physeq.RData")
+
+# Look at the data 
+scaled_physeq
+
+# Intuition check - scaled at 1,942
+min(sample_sums(scaled_physeq))
+
+range(sample_sums(scaled_physeq))
+```
+
+# Phylum analysis
+```{r phylum_analysis}
+# Create a phylum level dataframe
+phylum_df <- 
+  scaled_physeq %>%
+  # Agglomerate all ASV counts within a phylum
+  tax_glom(taxrank = "Phylum") %>%
+  # Calculate the relative abundance! 
+  transform_sample_counts(function(x) {x/sum(x)}) %>%
+  # Create a dataframe from phyloseq object
+  psmelt() %>%
+  # Filter out Phyla < 1 % 
+  #dplyr::filter(Abundance > 0.01)
+  mutate(temperature = fct_relevel(temperature, c("L", "C", "H")))
+ 
+
+## What are the phylum abundances? 
+phylum_df %>%
+  group_by(Phylum) %>%
+  summarize(mean_PercAbund = round(mean(Abundance), digits = 4)) %>%
+  arrange(-mean_PercAbund) %>%
+  datatable()
+```
+
+# Make a list of phyla the top phyla 
+```{r top_10}
+# Make a list of phyla the top phyla 
+top10_phyla <- 
+  phylum_df %>%
+  group_by(Phylum) %>%
+  summarize(mean_PercAbund = mean(Abundance)) %>%
+  arrange(-mean_PercAbund) %>%
+  head(n = 10) %>%
+  pull(Phylum)
+```
+
+INTERPRETATION #2: Which phyla in your dataset have the highest relative abundances? What are their abundances? We will focus on these phyla for plotting below. :)
+
+The most prominent phylum is Pseudomonadota, at 52%, following bacillota at 25%,and Bacteroidota at 20%. This accounts for 95% of the abundance, and the rest of the phyla are under 0.5% relative abundance.
+
+#  Stacked Bar Plot With All phyla of temperature
+```{r stacked_barplot_all_temp_all_phyla}
+
+# Stacked Bar Plot With All phyla 
+# Plot Phylum Abundances - make sure to load phylum_colors 
+phylum_df %>%
+  dplyr::filter(Phylum %in% top10_phyla) %>%
+  # Warning: It's important to have one sample per x value, 
+  # otherwise, it will take the sum between multiple samples
+  #dplyr::filter(depth == 0.0) %>%                ############ commented out
+  #dplyr::filter(fraction == "Whole") %>%         ############ commented out
+  ggplot(aes(x = temperature, y = Abundance, fill = Phylum)) + 
+  # facet_grid(.~temperature) + 
+  geom_bar(stat = "identity") + 
+  labs(title = "Top 10 Phyla: Snail microbiomes by temperature") + 
+  scale_fill_manual(values = phylum_colors) + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1))
+
+
+```
+
+# Stacked barplot of temperature_and_sex
+```{r stacked_barplot_temperature_and_sex}
+
+# Stacked Bar Plot With All phyla 
+# Plot Phylum Abundances - make sure to load phylum_colors 
+phylum_df %>%
+  dplyr::filter(Phylum %in% top10_phyla) %>%
+  # Warning: It's important to have one sample per x value, 
+  # otherwise, it will take the sum between multiple samples
+  #dplyr::filter(depth == 0.0) %>%                ############ commented out
+  #dplyr::filter(fraction == "Whole") %>%         ############ commented out
+  ggplot(aes(x = temperature, y = Abundance, fill = Phylum)) + 
+  facet_grid(.~sex) + 
+  geom_bar(stat = "identity") + 
+  labs(title = "Top 10 Phyla: Snail microbiomes by temperature AND sex ") + 
+  scale_fill_manual(values = phylum_colors) + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1))
+```
+
+SEX by TEMP
+Note: when I separate by temperature AND sex, I see that Female snails at Hi and Low temp have more acidobacteroita than males at same temp. Also, the abundances of the top 3 (pseudomonadota, bacillota, bacteroidota) are visually different. Would be cool to runs a stats test
+
+TEMP by SEX
+This looks so much more even, the corresponding M and F groups at each temp mirror each other.
+So, male and female snails do seem to have different microbiomes, but they change the same ways when exposed to heat or cold.
+
+# Faceted Bar plot of temperature variable
+```{r faceted_barplot_temperature}
+phylum_df %>%
+  dplyr::filter(Phylum %in% top10_phyla) %>%
+  # Individual sample comparison of surface waters, whole fraction 
+  # This will allow us to look at individual samples! 
+  # Note that whenever plotting stacked bar plots, you should always look at Individual samples! 
+  #dplyr::filter(depth == 0.0) %>%
+  #dplyr::filter(fraction == "Whole") %>%
+  ggplot(aes(x = temperature, y = Abundance, fill = Phylum)) + 
+  facet_grid(Phylum~temperature, scale = "free") + 
+  # add the stacked bar 
+  geom_bar(stat = "identity") + 
+  # change the colors to be our selected colors 
+  scale_fill_manual(values = phylum_colors) + 
+  theme_bw() + 
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1))
+```
+
+# Faceted barplot by temperature and sex
+```{r faceted_barplot_temperature_sex}
+phylum_df %>%
+  dplyr::filter(Phylum %in% top10_phyla) %>%
+  # Individual sample comparison of surface waters, whole fraction 
+  # This will allow us to look at individual samples! 
+  # Note that whenever plotting stacked bar plots, you should always look at Individual samples! 
+  #dplyr::filter(depth == 0.0) %>%
+  #dplyr::filter(fraction == "Whole") %>%
+  ggplot(aes(x = temperature, y = Abundance, fill = Phylum)) + 
+  facet_grid(Phylum~sex, scale = "free") + 
+  # add the stacked bar 
+  geom_bar(stat = "identity") + 
+  # change the colors to be our selected colors 
+  scale_fill_manual(values = phylum_colors) + 
+  theme_bw() + 
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1))
+```
+
+This is interesting, when looking at just temperature (not by sex), there are many minor phyla that have a visually different abundance in the cold, or grow from control to high to low. HOWEVER, there is a pattern for the top three phyla (pseudomonadota, bacillota, bacteroidota), where there is a difference in the high temperature compared to control and low. for pseudomonadota (blue), it is higher abundance at high-temperature. for Bacillota, it is much lower abundance at high temperature, which the paper also concluded. For bacteroidota, however, there is highest abundance at control, and lower abundance at high and low temperatures. 
+When separating by temperature and sex, these patterns hold for both female and male snails.
+
+```{r phylum_df}
+### Or combined together: 
+phylum_df %>%
+  dplyr::filter(Phylum %in% top10_phyla) %>%
+  ggplot(aes(x = temperature, y = Abundance, fill = Phylum, color = Phylum)) + 
+  facet_grid(Phylum~temperature, scale = "free") + 
+  # add the stacked bar 
+  geom_jitter() +
+  geom_boxplot(outlier.shape = NA, alpha = 0.5) + 
+  # change the colors to be our selected colors 
+  scale_fill_manual(values = phylum_colors) + 
+  scale_color_manual(values = phylum_colors) + 
+  theme_bw() + 
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1, size = 0.5))
+```
+
+INTERPRETATION #3: Make the above dotplot and boxplot for your sample types and your most abundant phyla. What initial conclusions can you draw regarding the sampled microbial communities as it relates to your scientific question?
+
+For the top 10 phyla in the snail microbiome samples sectioned by temperature and sex, Bacillota, Bdellovibrionota, Myxococcota, Verrucomicrobiota, spirochaetota, and desulfobacterota have similar abundances between sex at the different temperature groups. Male and female snail microbiomes match abundances at low, control, and high temperatures respectively.  However, Acidobacteriota, Actinomycetota, and Pseudomonadota differ between the sexes. for Acidobacteriota and Actinomycetota, female snails had more abundance at low and high temperatures, while for males, abundance stayed the same at all temperatures. For Pseudomonadota, males had more abundance at high temperatures compared to all other experimental groups. 
+
+
+Comparisons between temperature groups were also interesting. For many phyla (Acidobacteriota female and ctinomycetota female) female snails exhibited a decrease in abundance at control temperatures, while male snails remained at the low abundance level for all three temperature groups. For Bacillota, Bacteroidota, the control temperature had a higher abundance compared to low and high temperatures. One common pattern between most phyla was that the control microbiomes had a different amount of abundance comapred to high and low temperatures, which is strange considering it is a middle temperature between the two, and I'd expect abundance of a specific phyla to increase in the same direction. Excitingly however, both phyla were at lower abundance at high temperatures, which supports the paper's findings of changes in microbiome composition at high temperature. Similarly, Pseudomonadota exhibited high abundance at the high temperature group, especially for male snail microbiomes, compared to low and control temperature groups. Desulfobacterota female snails 
+
+
+## A1: Pseudomonadota (most abundant, high at high temp)
+
+```{r}
+# Narrow in on a specific group
+# Pseudomonadota - y: abundance, x: station, dot plot + boxplot
+pseudo_phylum_temp <- 
+  phylum_df %>%
+  dplyr::filter(Phylum == "Pseudomonadota") %>%
+  # build the plot 
+  ggplot(aes(x = temperature, y = Abundance, 
+             fill = temperature, color = temperature)) + 
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) + # outliers not plotted here in boxplot 
+  geom_jitter() + 
+  theme_bw() + 
+  labs(title = "Pseudomonadota Phylum") + 
+  scale_color_manual(values = temperature_colors) + 
+  scale_fill_manual(values = temperature_colors) + 
+    stat_compare_means(method = "kruskal.test", label.y = 1) +  # KRUSKAL p-value (not normal)
+  geom_pwc(
+    aes(group = temperature), tip.length = 0, hide.ns = TRUE,
+    method = "wilcox.test", label = "p.adj.signif",
+    step.increase = 0.08,
+    p.adjust.method = "fdr", bracket.nudge.y = -0.08) +
+  
+    theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+          legend.position = "right")
+# Statistically: Kruskall-Wallis followed by a Tukey's Posthoc test
+# These are non-parametric (non-normal) stat tests 
+
+
+# SEX
+pseudo_phylum_sex <- 
+  phylum_df %>%
+  dplyr::filter(Phylum == "Pseudomonadota") %>%
+  # build the plot 
+  ggplot(aes(x = sex, y = Abundance, 
+             fill = sex, color = sex)) + 
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) + # outliers not plotted here in boxplot 
+  geom_jitter() + 
+  theme_bw() + 
+  labs(title = "Pseudomonadota Phylum") + 
+  scale_color_manual(values = sex_colors) + 
+  scale_fill_manual(values = sex_colors) + 
+    theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+          legend.position = "right")
+# Statistically: Kruskall-Wallis followed by a Tukey's Posthoc test
+# These are non-parametric (non-normal) stat tests 
+
+# Collect both of the plots together into one 
+pseudo_phylum_temp + pseudo_phylum_sex + 
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "A")
+```
+Sure, forward with this
+
+## A2: Bacillota (second most abundant, low at high temp)
+
+```{r}
+
+# Pseudomonadota - y: abundance, x: station, dot plot + boxplot
+bacil_phylum_temp <- 
+  phylum_df %>%
+  dplyr::filter(Phylum == "Bacillota") %>%
+  # build the plot 
+  ggplot(aes(x = temperature, y = Abundance, 
+             fill = temperature, color = temperature)) + 
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) + # outliers not plotted here in boxplot 
+  geom_jitter() + 
+  theme_bw() + 
+  labs(title = "Abundance of Bacillota Phylum") + 
+  scale_color_manual(values = temperature_colors) + 
+  scale_fill_manual(values = temperature_colors) + 
+  
+  stat_compare_means(method = "kruskal.test", label.y = 0.7) +  # KRUSKAL p-value (not normal)
+  geom_pwc(
+    aes(group = temperature), tip.length = 0, hide.ns = TRUE,
+    method = "wilcox.test", label = "p.adj.signif",
+    step.increase = 0.08,
+    p.adjust.method = "fdr", bracket.nudge.y = -0.08) +
+  theme_bw() + 
+    theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+          legend.position = "right")
+# Statistically: Kruskall-Wallis followed by a Tukey's Posthoc test
+# These are non-parametric (non-normal) stat tests 
+
+
+# SEX
+bacil_phylum_sex <- 
+  phylum_df %>%
+  dplyr::filter(Phylum == "Bacillota") %>%
+  # build the plot 
+  ggplot(aes(x = sex, y = Abundance, 
+             fill = sex, color = sex)) + 
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) + # outliers not plotted here in boxplot 
+  geom_jitter() + 
+  theme_bw() + 
+  labs(title = "Bacillota Phylum") + 
+  scale_color_manual(values = sex_colors) + 
+  scale_fill_manual(values = sex_colors) + 
+    theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+          legend.position = "right")
+# Statistically: Kruskall-Wallis followed by a Tukey's Posthoc test
+# These are non-parametric (non-normal) stat tests 
+
+# Collect both of the plots together into one 
+bacil_phylum_temp + bacil_phylum_sex + 
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "A")
+
+```
+Definitely move forward with this one
+
+## A3: Bacteroidetes (third most abundant, low at high temp)
+```{r}
+
+# Bacteroidetes - y: abundance, x: station, dot plot + boxplot
+bacter_phylum_temp <- 
+  phylum_df %>%
+  dplyr::filter(Phylum == "Bacteroidota") %>%
+  # build the plot 
+  ggplot(aes(x = temperature, y = Abundance, 
+             fill = temperature, color = temperature)) + 
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) + # outliers not plotted here in boxplot 
+  geom_jitter() + 
+  stat_compare_means(method = "kruskal.test", label.y = 0.5) +  # KRUSKAL p-value (not normal)
+  geom_pwc(
+    aes(group = temperature), tip.length = 0, hide.ns = TRUE,
+    method = "wilcox.test", label = "p.adj.signif",
+    step.increase = 0.08,
+    p.adjust.method = "fdr", bracket.nudge.y = -0.08) +
+  theme_bw() + 
+  labs(title = "Abundance of Bacteroidota Phylum") + 
+  scale_color_manual(values = temperature_colors) + 
+  scale_fill_manual(values = temperature_colors) + 
+    theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+          legend.position = "right")
+# Statistically: Kruskall-Wallis followed by a Tukey's Posthoc test
+# These are non-parametric (non-normal) stat tests 
+
+
+# SEX
+bacter_phylum_sex <- 
+  phylum_df %>%
+  dplyr::filter(Phylum == "Bacteroidota") %>%
+  # build the plot 
+  ggplot(aes(x = sex, y = Abundance, 
+             fill = sex, color = sex)) + 
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) + # outliers not plotted here in boxplot 
+  geom_jitter() + 
+  theme_bw() + 
+  labs(title = "Bacteroidotaq Phylum") + 
+  scale_color_manual(values = sex_colors) + 
+  scale_fill_manual(values = sex_colors) + 
+    theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+          legend.position = "right")
+# Statistically: Kruskall-Wallis followed by a Tukey's Posthoc test
+# These are non-parametric (non-normal) stat tests 
+
+# Collect both of the plots together into one 
+bacter_phylum_temp + bacter_phylum_sex + 
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "A")
+
+
+bacil_phylum_temp + bacter_phylum_temp + 
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "A")
+```
+eh not necessary, high temp not that separated from the rest, but may be good for comparisons to the paper
+
+## A4:desulfobacterota (not abundant, but v high at control)
+```{r Desulfobacterota_temperature_boxplot}
+
+# desulfur - y: abundance, x: station, dot plot + boxplot
+thermo_phylum_temp <- 
+  phylum_df %>%
+  dplyr::filter(Phylum == "Thermodesulfobacteriota") %>%
+  # build the plot 
+  ggplot(aes(x = temperature, y = Abundance, 
+             fill = temperature, color = temperature)) + 
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) + # outliers not plotted here in boxplot 
+  geom_jitter() + 
+  theme_bw() + 
+  labs(title = "Thermodesulfobacteriota Phylum") + 
+  scale_color_manual(values = temperature_colors) + 
+  scale_fill_manual(values = temperature_colors) + 
+    theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+          legend.position = "right")
+# Statistically: Kruskall-Wallis followed by a Tukey's Posthoc test
+# These are non-parametric (non-normal) stat tests 
+
+
+# SEX
+thermo_phylum_sex <- 
+  phylum_df %>%
+  dplyr::filter(Phylum == "Thermodesulfobacteriota") %>%
+  # build the plot 
+  ggplot(aes(x = sex, y = Abundance, 
+             fill = sex, color = sex)) + 
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) + # outliers not plotted here in boxplot 
+  geom_jitter() + 
+  theme_bw() + 
+  labs(title = "Thermodesulfobacteriota Phylum") + 
+  scale_color_manual(values = sex_colors) + 
+  scale_fill_manual(values = sex_colors) + 
+    theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+          legend.position = "right")
+# Statistically: Kruskall-Wallis followed by a Tukey's Posthoc test
+# These are non-parametric (non-normal) stat tests 
+
+# Collect both of the plots together into one 
+thermo_phylum_temp + thermo_phylum_sex + 
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "A")
+```
+Also maybe not, control probs won't be significant from high temp
+
+INTERPRETATION #4: Based on these phylum-level analyses, were there any phyla that you were able to identify to focus on moving forward for deeper taxonomic analyses? Why?
+
+
+Pseudomonadota and Bacillota seemed to have one group (high temp) that is significantly different from the other two. especially bacillota. For Pseudomonadota, the control temperature holds the lowest abundance. Both low temp and high temp display an increase in abundance, suggesting that a disbalance in temperature in either direction allows opportunistic microbes from Pseudomonadota to rise in abundance. For Bacillota, low and control temperatures have similar abundances, but the abundance drops noticeably at high temperatures. This suggests that at high temperatures, bacteria from this phylum are no longer able to survive. For Bacteroidetes and Thermodesulobacteroiota, There is a drop in abundance at both low and high temperatures, however it does not seem to be drastic enough to count as biologically significant. Perhaps it implies though that an imbalance in temperature prevents these bacteria from being as abundant as they should be.
+
+Due to the clear differences between temperature groups in Pseudomonadota and Bacillota, I have decided to move forward with these two phyla, and disregard thermodesulfobacterota
+
+# Create a Genus dataframe 
+```{r genus_dataframe}
+# Calculate the Family relative abundance 
+# Note: The read depth MUST be normalized in some way: scale_reads
+genus_df <- 
+  scaled_physeq %>%
+  # agglomerate at the phylum level 
+  tax_glom(taxrank = "Genus") %>% 
+  # Transform counts to relative abundance 
+  transform_sample_counts(function (x) {x/sum(x)}) %>%
+  # Melt to a long format 
+  psmelt() %>%
+  # Fix the order of date
+  mutate(temperature = fct_relevel(temperature, c("L", "C", "H")))
+```
+
+
+## B1: Pseudomonadota Genera
+Plot relative abundance of genera within Pseudomonadota phylum
+```{r Pseudomonadota_genus_temperature_boxplot}
+# Actinomycetota:
+# I def want enterobacteria, (this is an order, not a genus). maybe other gammaproteo?
+
+
+#Make boxplots of Pseudomonadota genus
+pseudo_df <- subset(genus_df, Order == "Enterobacterales")
+
+# Plot genus 
+pseudo_genus_temp <- 
+  genus_df %>%
+  dplyr::filter(Phylum == "Pseudomonadota") %>%
+  # At first, plot all of the genera and then subset the ones that have intersting trends
+  dplyr::filter(Genus %in% c("Tolumonas", "Aeromonas","Enterobacter")) %>%
+  # build the plot "Tolumonas", "Aeromonas", 
+  ggplot(aes(x = temperature, y = Abundance, 
+             fill = temperature, color = temperature)) + 
+  facet_wrap(.~Genus, scales = "free_y", nrow = 1) + 
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) + # outliers not plotted here in boxplot 
+  geom_jitter() + 
+  
+  #     stat_compare_means(method = "kruskal.test", label.y = 0.02) +  # KRUSKAL p-value (not normal)
+  # geom_pwc(
+  #   aes(group = temperature), tip.length = 0, hide.ns = TRUE,
+  #   method = "wilcox.test", label = "p.adj.signif",
+  #   step.increase = 0.08,
+  #   p.adjust.method = "fdr", bracket.nudge.y = -0.08) +
+  
+  theme_bw() + 
+  labs(title = "Pseudomonadota Genera within Enterobacter order") + 
+  scale_color_manual(values = temperature_colors) + 
+  scale_fill_manual(values = temperature_colors) + 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+        legend.position = "none")
+
+
+# Collect the Actinomycetota Plots
+pseudo_genus_temp + 
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "A")
+
+# pseudo_genus_temp_aero + pseudo_genus_temp_ent + 
+#   pseudo_genus_temp_tolu + 
+#   plot_layout(guides = "collect") +
+#   plot_annotation(tag_levels = "A")
+```
+
+### pseudomonadota classes (within gamma)alpha, beta, gamma
+```{r Pseudomonadota_classes_temperature_boxplot}
+
+pseudo_df <- subset(genus_df, Phylum == "Pseudomonadota")
+categories <- unique(pseudo_df$Genus)
+
+# Plot class
+pseudo_class_temp <- 
+  genus_df %>%
+  dplyr::filter(Phylum == "Pseudomonadota") %>%
+  # At first, plot all of the genera and then subset the ones that have intersting trends
+  dplyr::filter(Class %in% c("Gammaproteobacteria", "Alphaproteobacteria")) %>%
+  # build the plot 
+  ggplot(aes(x = factor(temperature), y = Abundance, 
+             fill = temperature, color = temperature)) + 
+  facet_wrap(.~Class, scales = "free_y", nrow = 1) + 
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) + # outliers not plotted here in boxplot 
+  geom_jitter() + 
+  theme_bw() + 
+  labs(title = "Pseudomonadota Classes") + 
+  scale_color_manual(values = temperature_colors) + 
+  scale_fill_manual(values = temperature_colors) + 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+        legend.position = "none")
+
+
+# Collect the Pseudo Plots
+pseudo_genus_temp + 
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "A")
+```
+There was a large number of genera in Pseudomonadota, so I first created a boxplot for the different classes within this phylum. The two classes present in this sample were gamma and alphaproteobacteria, and both seem to not change abundances between temperature. Therefore, I decided to look further at the different orders. The paper stated that many enterobacterales genera increased abundance at high temperature, so I looked at the genera within the enterobacterales order. Four genera followed distinct abundance patterns. Enterobacter and Tolumonas increased in abundance at high temperatures, while Citrobacter decreased. Pseudocritobacter followed a gradient, lowering in. abundance from low to conrol to high temperature.
+
+### Pseudomonadota genera order Burkholderia
+Because a lot of our top ASVs are burkholderias
+```{r Burkholderia_genus_temperature_boxplot}
+ burk_df <- subset(genus_df, Order == "Burkholderiales")
+ categories <- unique(burk_df$Genus)
+ # 146 genera in burkholderiales!
+
+# Plot class
+burk_genus_temp <- 
+  genus_df %>%
+  dplyr::filter(Order == "Burkholderiales") %>%
+  # At first, plot all of the genera and then subset the ones that have intersting trends
+  dplyr::filter(Genus %in% c("Hydrogenophaga", "Uliginosibacterium", "Ralstonia", "Aquitalea", "Acidovorax", "Burkholderia-Caballeronia-Paraburkholderia")) %>%
+  # build the plot 
+  ggplot(aes(x = factor(temperature), y = Abundance, 
+             fill = temperature, color = temperature)) + 
+  facet_wrap(.~Genus, scales = "free_y", nrow = 1) + 
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) + # outliers not plotted here in boxplot 
+  geom_jitter() + 
+  theme_bw() + 
+  labs(title = "Burkholderiales Order") + 
+  scale_color_manual(values = temperature_colors) + 
+  scale_fill_manual(values = temperature_colors) + 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+        legend.position = "none")
+
+
+# Collect the Pseudo Plots
+burk_genus_temp + 
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "A")
+```
+there were 146 genera in the order Burkholderiales, so I included the top 5 plus "Burkholderia-Caballeronia-Paraburkholderia". Though 7 of the top `3 ASVs are from this order, none of the plots particularly show a strong change in abundance at any temperature. Burk-Caball-Paraburk, and Hydrogenophaga had many high-abundance outliers at high temperatures, and Acidovorax had high-abundance outliers at low and high temperatures, yet none of these match the overall pattern that is claimed in the paper.
+
+### Make one plot with Enterobacter and Burkholderia orders
+```{r Enterobacter_Burholderia_genera_temperature_boxplot}
+burk_genus_temp + pseudo_genus_temp +
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "A")
+```
+
+
+
+## Bacillota genera, probably lacobacter
+Plot relative abundance of genera within Bacillota phylum
+```{r Bacillota_genus_temperature_boxplot}
+bacil_df <- subset(genus_df, Phylum == "Bacillota")
+categories <- unique(bacil_df$Genus)
+
+# Plot class
+bacil_genus_temp <- 
+  genus_df %>%
+  dplyr::filter(Phylum == "Bacillota") %>%
+  # At first, plot all of the genera and then subset the ones that have intersting trends
+  dplyr::filter(Genus %in% c("Lactococcus", "Ligilactobacillus", "Brochothrix", "Kurthia")) %>%
+  # build the plot 
+  ggplot(aes(x = factor(temperature), y = Abundance, 
+             fill = temperature, color = temperature)) + 
+  facet_wrap(.~Genus, scales = "free_y", nrow = 1) + 
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) + # outliers not plotted here in boxplot 
+  geom_jitter() + 
+  theme_bw() + 
+  labs(title = "Bacillota Genera") + 
+  scale_color_manual(values = temperature_colors) + 
+  scale_fill_manual(values = temperature_colors) + 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+        legend.position = "none")
+
+
+# Collect the Pseudo Plots
+bacil_genus_temp + 
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "A")
+```
+Bacillota only had the top four general that were abundant at any temperature group. Of these four, only Lactococcus showed any pattern: abundance dropped at high temperatures. The other three genera had many outliers, but the median line of the boxplot was generally very low and equally low between temperature groups. 
+Moving forward, only Lactococcus is interesting.Plus, the Top ASVs from Bacillota are exclusively from the genera Lactococcus.
+
+
+
+
+
+
+
+# ASV Level
+create a new dataframe for the ASVs and sanity check the number of unique ASVs in dataset
+```{r ASV_level_df}
+
+#how many asv's do I have?
+categories <- unique(genus_df$OTU)
+# 736 OTUs. 
+# In the previous HW, I scaled to 39242, so I will remove the taxa that have less than 1%, which is 392
+
+
+# Calculate the Family relative abundance 
+# Note: The read depth MUST be normalized in some way: scale_reads
+ASV_df <- 
+  scaled_physeq %>%
+  # Prune out ASVs that have fewer than 100 counts! 
+  ## LOOK AT HOW MANY ARE REMOVED! We scaled to 1,962 reads! 
+  prune_taxa(taxa_sums(.) >= 392, .) %>%
+  # agglomerate at the phylum level 
+  tax_glom(taxrank = "ASV") %>% 
+  # Transform counts to relative abundance 
+  transform_sample_counts(function (x) {x/sum(x)}) %>%
+  # Melt to a long format 
+  psmelt() %>%
+  # fix the order of date
+  mutate(temperature = fct_relevel(temperature, c("L", "C", "H")))
+
+# Check how many unique ASVs we have now:
+categories <- unique(ASV_df$OTU)
+# Now we have 317 unique ASVs, basically reduced in half.
+# What phyla do we still have?
+categories <- unique(ASV_df$Phylum)
+phyla_df <- subset(ASV_df, Phylum == "Pseudomonadota")
+
+```
+
+## Pseudomonadota ASVs
+Plot relative abundance of top ASVs within Pseudomonadota phylum
+```{r Pseudomonas_ASV_temperature_boxplot}
+# Make a list of phyla the top phyla 
+top_pseudo_ASVs <- 
+  ASV_df %>%
+  dplyr::filter(Phylum == "Pseudomonadota") %>%
+  group_by(ASV) %>%
+  summarize(mean_Abundance = mean(Abundance)) %>%
+  dplyr::filter(mean_Abundance > 0.005) %>%
+  pull(ASV)
+
+# Pseudomonadota
+# Plot ASVs 
+pseudo_asv_temp <- 
+  ASV_df %>%
+  dplyr::filter(ASV %in% top_pseudo_ASVs) %>%
+  #dplyr::filter(OTU %in% c("ASV_0007", "ASV_0015","ASV_0027", "ASV_0032", "ASV_0031", "ASV_0003","ASV_0021", "ASV_0017")) %>%
+  # build the plot 
+  ggplot(aes(x = temperature, y = Abundance, 
+             fill = temperature, color = temperature)) + 
+  facet_wrap(Genus~ASV, scales = "free_y", nrow = 2) + 
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) + # outliers not plotted here in boxplot 
+  geom_jitter() + 
+  theme_bw() + 
+  labs(title = "Pseudomonadota ASVs") + 
+  scale_color_manual(values = temperature_colors) + 
+  scale_fill_manual(values = temperature_colors) + 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+        legend.position = "none")
+
+# Collect the Actinomycetota Plots
+pseudo_asv_temp + 
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "A")
+
+```
+
+
+## Bacillota ASVs 
+plot relative abundance of top ASVs within the Bacillota phylum
+```{r Bacillota_ASV_temperature_boxplot}
+
+# Make a list of phyla the top phyla 
+top_bacil_ASVs <- 
+  ASV_df %>%
+  dplyr::filter(Phylum == "Bacillota") %>%
+  group_by(ASV) %>%
+  summarize(mean_Abundance = mean(Abundance)) %>%
+  dplyr::filter(mean_Abundance > 0.005) %>%
+  pull(ASV)
+
+
+# What does the bacillota phylum look like?
+top_bacil_ASVs <- subset(ASV_df, Phylum == "Bacillota")
+# how many classes in bacil do we
+categories <- unique(top_bacil_ASVs$OTU)
+
+
+shapiro.test(top_bacil_ASVs$Abundance)
+# not normal, we can use kruskall wallis test
+# Pseudomonadota
+# Plot ASVs 
+
+
+
+# plot boxplot of ASVs within Bacillotas
+# bacil_asv_temp <- 
+#   ASV_df %>%
+#   dplyr::filter(ASV %in% top_bacil_ASVs) %>%
+#   #dplyr::filter(OTU %in% c("ASV_0029")) %>%
+#   # build the plot 
+#   ggplot(aes(x = temperature, y = Abundance, 
+#              fill = temperature, color = temperature)) + 
+#   facet_wrap(Genus~ASV, scales = "free_y", nrow = 2) + 
+#   geom_boxplot(alpha = 0.5, outlier.shape = NA) + # outliers not plotted here in boxplot 
+#   geom_jitter() + 
+# 
+#   # stat_compare_means(method = "kruskal.test", label.y = 0.02) +  # KRUSKAL p-value (not normal)
+#   # geom_pwc(
+#   #   aes(group = temperature), tip.length = 0, hide.ns = TRUE,
+#   #   method = "wilcox.test", label = "p.adj.signif",
+#   #   step.increase = 0.08,
+#   #   p.adjust.method = "fdr", bracket.nudge.y = -0.08) +
+#   # 
+#   labs(title = "Bacillota ASVs") + 
+#   scale_color_manual(values = temperature_colors) + 
+#   scale_fill_manual(values = temperature_colors) + 
+#   theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+#         legend.position = "none")
+  
+ 
+# Collect the Actinomycetota Plots
+# bacil_asv_temp + 
+#   plot_layout(guides = "collect") +
+#   plot_annotation(tag_levels = "A")
+
+```
+The top ASVs dataframe for the Bacillota phylum only contains two ASVs, lactococcus 0001 and lactococcus 0029. The other top Bacillota genera from the genera ASVs did not appear, but it may be that Lactococcus 0001 ASV is a huge percentage of populations and is singlehandedly making up the abundance of Bacillota. 
+
+
+## Burkholderia ASVs spescifically
+Plot relative abundance of top ASVs within Burkholderiales order
+```{r Burkholderiales_ASV_temperature_boxplot}
+
+# Pseudomonadota
+# Plot ASVs 
+burk_asv_temp <- 
+  ASV_df %>%
+  dplyr::filter(ASV %in% top_pseudo_ASVs) %>%
+  dplyr::filter(Order == "Burkholderiales") %>%
+  #dplyr::filter(OTU %in% c("ASV_0007", "ASV_0015","ASV_0027", "ASV_0032", "ASV_0031", "ASV_0003","ASV_0021", "ASV_0017")) %>%
+  # build the plot 
+  ggplot(aes(x = temperature, y = Abundance, 
+             fill = temperature, color = temperature)) + 
+  facet_wrap(Genus~ASV, scales = "free_y", nrow = 2) + 
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) + # outliers not plotted here in boxplot 
+  geom_jitter() + 
+  theme_bw() + 
+  labs(title = "Pseudomonadota ASVs in Burkholderiales order") + 
+  scale_color_manual(values = temperature_colors) + 
+  scale_fill_manual(values = temperature_colors) + 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+        legend.position = "none")
+
+# Collect the Actinomycetota Plots
+burk_asv_temp + 
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "A")
+
+head(genus_df %>% filter(OTU == "ASV_0004"), 1)
+
+```
+
+## Bacteroidetes ASVs specifically (are there any top asv's?)
+Plot relative abundance of top ASVs within Bacteroidetes phylum
+```{r Bacteroidetes_ASV_temperature_boxplot}
+
+# Make a list of phyla the top phyla 
+top_bacter_ASVs <- 
+  ASV_df %>%
+  dplyr::filter(Phylum == "Bacteroidota") %>%
+  group_by(ASV) %>%
+  summarize(mean_Abundance = mean(Abundance)) %>%
+  dplyr::filter(mean_Abundance > 0.005) %>%
+  pull(ASV)
+
+bacter_asv_temp_19 <- 
+  ASV_df %>%
+  dplyr::filter(ASV %in% top_bacter_ASVs) %>%
+  dplyr::filter(OTU %in% c("ASV_0019")) %>%
+  # build the plot 
+  ggplot(aes(x = temperature, y = Abundance, 
+             fill = temperature, color = temperature)) + 
+  facet_wrap(Genus~ASV, scales = "free_y", nrow = 2) + 
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) + # outliers not plotted here in boxplot 
+  geom_jitter() + 
+
+  stat_compare_means(method = "kruskal.test", label.y = 0.08) +  # KRUSKAL p-value (not normal)
+  geom_pwc(
+    aes(group = temperature), tip.length = 0, hide.ns = TRUE,
+    method = "wilcox.test", label = "p.adj.signif",
+    step.increase = 0.08,
+    p.adjust.method = "fdr", bracket.nudge.y = -0.08) +
+
+  labs(title = "Bacteroidetes ASVs") + 
+  scale_color_manual(values = temperature_colors) + 
+  scale_fill_manual(values = temperature_colors) + 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+        legend.position = "none")
+
+
+# bacter_asv_temp_02 + bacter_asv_temp_11 + bacter_asv_temp_19 +
+#   plot_layout(guides = "collect") +
+#   plot_annotation(tag_levels = "A")
+
+```
+
+
+
+INTERPRETATION #6: Were the most abundant ASVs in your dataset represented in your ASV-level plots? If not, please go back and plot them specifically. (Hint: Remember that we ordered our ASV names by abundance across the entire dataset. Therefore, ASV_0001 will be the most abundant, ASV_0007 will be the 7th most abundant and so on.)
+
+For the pseudomonadota ASVs boxplot, many enterobacterales ASVs appeared, however there were no Burkholderiales ASVs present, despite Burkholderiales being the order of 7 of the 15 most abundant ASVs in this study. Therefore, I made another ASVs plot specific to the Burkholderiales ASVs.The Burkholderiales top ASVs boxplot contained 12 ASV's, which had ASV 4,5,8,10,and 13, five of the top 15 ASVs. 
+
+The top ASVs dataframe for the Bacillota phylum only contains two ASVs, lactococcus 0001 and lactococcus 0029. The other top Bacillota genera from the genera ASVs did not appear, but it may be that Lactococcus 0001 ASV is a huge percentage of populations and is singlehandedly making up the abundance of Bacillota. 
+
+
+
+
+
+
+
+INTERPRETATION #7: Please make some plots at the ASV level as it relates to your scientific question. Were there any ASVs that were especially related to trends that you saw? Did a specific phylogenetic group all show the same trends (e.g. like the Actinomycetota ASVs above)? Or did the ASVs have various, likely niche-specific responses (similar to the Cyanobacteriota above)??
+
+From Pseudomonas, the ASVs that had visibly distinct abundances for one temperature group were 0007, 0015, 0027, Aeromonas, which increased abundance of high temp. This was seen in the genus boxplots looking at different genera in the Enterobacterales order. Two Tolumonas ASVs, 0003 and 0021, were also increased abundance at high temps, which was also seein in the general boxplot. 0026, citrobacteria, increased at low temp, was also seen in the enterobacter plot. Dechloromonas was high abundance at control temperatures.
+A biological interpretation for the  that for most major ASVs in the Pseudomonas phylum, abundance increases at high temperatures compared to low and controlled temperatures. The phylum-level increase in abundance is mainly driven by the order Enterobacterales, which contains 6 of the 8 major ASVs that drive this change. Despite this, there are some ASVs that grow in abundance at lower temperatures, or that decrease in abundance at high and low temperatues, which may be skewing the overall effect of the ASVs that increase in abundance when looking at the general Order boxplots.
+
+Because none of the top Burkholderiales ASVs made it to the Pseudomonadota ASV boxplot, I plotted them separately in a graph for the top ASVs in the Burkholderiales order. Most ASVs were low abundance and did not show a large change in abundance between the temperature groups. Aquitalea ASV_0005 displayed a decrease in abundance correlated with higher temperatures, having decreasing abundance from low to control to high temperature. Aquitalea ASV_0026 in contrast had many outliers at high abundance at high temperatures, which matches with the Enterobacterales ASVs that have a similar pattern. This may mean biologically that Burkholderiales, though high in abundance, do not contribute to changes in abundance at higher and lower temperatures.
+
+The top ASVs dataframe for the Bacillota phylum only contains two ASVs, lactococcus 0001 and lactococcus 0029. This suggests that all other Bacillota genera are not at high enough abundance to be 1% of the relative abundance of ASVs. This is surprising, as Bacillota as a phylum was the second most abundant of all the phylas, however, since Lactococcus 0001 is the most abundant ASV, it could be that this single ASV is a huge percentage of populations and is singlehandedly making up the abundance of Bacillota. This is further supported by the y axis of these box plots. Lactococcus ASV_0001 has a median of 0.25.
+
+
+
+
+INTERPRETATION #8: Now, do a quick literature or google search and look back in the paper that you may be replicating (if applicable). Does your ASV-level changes represent something that is currently known? Or is this a novel result? What did you learn about this ASV or a group of ASVs in your dataset?
+
+
+
+Mainly, this represents what is known. The paper focused on increase in 
+
+```{r devtools info}
+
+devtools::session_info()
+
+```
+
