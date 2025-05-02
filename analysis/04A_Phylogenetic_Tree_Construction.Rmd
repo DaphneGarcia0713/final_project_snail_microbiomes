@@ -1,0 +1,142 @@
+---
+title: "Phylogenetic Tree Construction w FastTree2"
+author: "Daphne Garcia"
+date: "2025-03-31"
+output: html_document
+---
+# Goals 
+
+The goal of this script is to make a phylogenetic tree of the ASVs in our snail microbiome samples in order to conduct phylogenetic community analyses like phylogenetic Hill Numbers and the UniFrac beta-diversity measures. 
+
+1. Create anASV fasta file from the phyloseq object.
+2. Align the 16S Sequences from our fasta file using MAFFT 
+3. Create a maximum likelihood tree using FastTree2
+
+## Inputs 
+1. Pre-processed phyloseq object `data/03_PreProcessing/raw_preprocessed_physeq`
+
+## Outputs 
+1. Aligned 16S rRNA gene sequences `data/04_PhylogeneticTree/MAAFT_aligned_ASV.fasta`
+2. Ccalculated phylogenetic tree file `data/04_PhylogeneticTree/ASVs_unrooted.tree`
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE,
+                      fig.align = "center",
+                      # Always relevant to the document directory 
+                      # send any figure output to this folder 
+                      fig.path = "figures/04_PhylogeneticTree/",
+                      warning = FALSE) 
+```
+
+# Start and load libraries
+```{r rmd-start, seed, package loading}
+# What time did we start running this script? 
+start_time <- Sys.time()
+
+set.seed(238438)
+
+# Install phytools
+#remotes::install_github("liamrevell/phytools")
+
+# Install ggtree
+#devtools::install_github("GuangchuangYu/ggtree")
+
+# Now load them into the session 
+pacman::p_load(phytools, ggtree, tidyverse, install = FALSE)
+```
+
+
+## 1. Load Data 
+
+```{r load-physeq}
+# Load physeq 
+load("data/03_PreProcessing/raw_preprocessed_physeq.RData")
+raw_preprocessed_physeq
+```
+
+# 2. Write ASV Fasta 
+Create a FASTA object from ASV sequences and names of the raw_preprocessed_physeq object and write to `data/04_PhylogeneticTree/preprocessed_ASVs.fasta`
+```{r asv-fasta}
+# Pull out ASV sequences and ASV names
+asv_seq_df <- 
+  raw_preprocessed_physeq@tax_table %>% 
+  data.frame() %>% 
+  dplyr::select(ASV, ASVseqs)
+
+#View(asv_seq_df)
+
+# Add the ">" to make fasta header
+asv_seq_df$ASV <- paste0(">", asv_seq_df$ASV)
+
+#View(asv_seq_df)
+
+# Create fasta object
+asv_seq_fasta <- c(rbind(asv_seq_df$ASV, asv_seq_df$ASVseqs))
+head(asv_seq_fasta)
+
+# Write to a fasta file 
+write(asv_seq_fasta, 
+      file = "data/04_PhylogeneticTree/preprocessed_ASVs.fasta")
+
+```
+
+
+# 3. Run Alignment with MAAFT 
+REMEMBER: RUN WITH CTRL + ALT
+REMEMBER: be in /workdir/dsg252/final_project_snail_microbiomes
+```{r run-mafft, engine = 'bash', engine.opts = '-l'}
+# Write bash code to run MAFFT
+# First provide the path to MAFFT
+export PATH=/programs/mafft/bin:$PATH
+
+# Where am I? 
+echo "The working directory is $PWD"
+
+# Set a seed for consistency and reproducibility 
+RANDOM=238428
+
+# Now, actually run MAFFT (long step, 10 mins)
+/programs/mafft/bin/mafft --auto data/04_PhylogeneticTree/preprocessed_ASVs.fasta > data/04_PhylogeneticTree/MAFFT_aligned_ASVs.fasta
+```
+
+
+# 4. Calculate the phylogenetic tree with FastTree2
+
+REMEMBER: RUN WITH CTRL + ALT
+REMEMBER: be in /workdir/dsg252/final_project_snail_microbiomes
+```{r run-fasttree2, engine = 'bash', engine.opts = '-l'}
+# Where am I? 
+echo "The working directory is $PWD"
+
+# Load fasttree 
+# Provide export path to fasttree 
+export PATH=/programs/FastTree-2.1.11:$PATH
+
+# Run Fasttree to generate phylogenetic tree 
+# parameters: 
+    # -nt = indicates it's a nucleotide alignment
+    # -gtr = generalized time reversible substitution model 
+    # -fastest speed up the model, reduce memory usage (recommended for datasets that have >50,000)
+    # -log = output a log file 
+    # input alignment file 
+    # specify the output tree file 
+FastTree -nt -gtr -fastest -log data/04_PhylogeneticTree/FastTree.log data/04_PhylogeneticTree/MAFFT_aligned_ASVs.fasta > data/04_PhylogeneticTree/ASVs_unrooted.tree
+#long step (10 min, or 607 seconds)
+```
+
+
+# Final info for Reproducibility 
+
+## Check Render Time
+```{r stop-time}
+# Take the time now that we are at the end of the script
+end_time <- Sys.time()
+end_time 
+
+# Echo the elapsed time
+elapsed_time <- round((end_time - start_time), 3)
+elapsed_time
+```
+
+
