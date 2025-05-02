@@ -1,14 +1,35 @@
-### README for `final_project_snail_microbiomes` R project ###
+### README for analysis/ ###
 
+This directory contains X pairs of .Rmd and .html files, plus a subdirectory of fastQC reports:
+07_Composition
+06_Ordination
+05_Biodiversity
+04B_Phylogenetic_Tree_Inspection
+04A_Phylogenetic_Tree_Construction
+03_PreProcessing
+02_Assigning_ASV
+ 01_QualityTrimming
 
-Apple snails are invasive  and constantly breaching environments with a variety of temperatures, making it important to accurately discern how temperature affects the bacterial diversity in their intestinal microbiomes. Understanding how the alpha and beta diversity of pathogenic vs immune-linked phyla change with respect to temperature is essential for revealing how thermal conditions influence their microbiomes.
+## 07_Composition:
+Perform compositional analysis of the scaled/noramlized/rarefied snail intestinal-microbiome dataset. Investigate relative-abundance shifts in taxa within 3 phyla: Pseudomonadota, Bacillota, and Bacteroidetes
 
-The data was taken from BioProject `PRJNA843708`, https://www.ebi.ac.uk/ena/browser/view/PRJNA843708
+## 06_Ordination:
+Calculate community dissimilarities between the 6 experimental groups (high, control, low temperatures vs female and male hosts) with: Sorensen, Bray-Curtis, and weighted/unweighted UNIFRAC. Visualize the community data with PCoA and NMDS
 
-linked to the paper “Effect of long-term temperature stress on the intestinal microbiome of an invasive snail” ( Li et al., 2022, Frontiers in Micro). 
-https://doi.org/10.3389/fmicb.2022.961502
+## 05_Biodiversity:
+Plot and analyze richness, shannon, simpson Hill alpha diversity metrics for 6 experimental groups (high, control, low temperatures vs female and male hosts)
 
-The authors raised Pomacea candiculata at three temperature groups: low (25C) control (30C) and high (35C), and after 14 days, sampled intestinal contents of 10 male and female snails respectively.
+## 04B_Phylogenetic_Tree_Inspection:
+Inspect, prune, and midpoint-root the phylogenetic tree created in `04A_Phylogenetic_Tree_Construction`
 
-The authors sampled 16S rRNA genes with V3-4 region primers 341F and  806R (Dao et al., 2021), with expected length of 465bp, on Illumina NovaSeq 6000 paired end.
-341F (5′-CCTAYGGGRBGCASCAG-3′), 806R (5′-GGACTACNNGGGTATCTAAT-3′)
+## 04A_Phylogenetic_Tree_Construction:
+Make a phylogenetic tree of the ASVs in our snail microbiome samples in order to conduct phylogenetic community analyses like phylogenetic Hill Numbers and the UniFrac beta-diversity measures
+
+## 03_PreProcessing:
+Combine `asv_table`, `tax_table`, and metadata and create phyloseq object. Then, remove any potential contaminants and evaluate the accuracy of the sequencing run, to consolidate into a `raw_preprocessed_physeq` phyloseq data object. 
+
+## 02_Assigning_ASV
+Merge, assign ASVs and taxonomy, and and quality-trim filtered fastqs, in order to further process and analyze the 16S sequencing reads
+
+## 01_QualityTrimming
+Assess the quality of reads, filter and trim low-quality sequences, and merge reads in order to assign ASV’s downstream
