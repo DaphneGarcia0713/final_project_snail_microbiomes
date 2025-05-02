@@ -1,0 +1,33 @@
+### README for /data ###
+
+This directory contains 6 subdirectories and two files:
+data_raw
+data_filtered
+03_PreProcessing  
+04_PhylogeneticTree
+05_Biodiversity
+06_Ordination 
+ accessions.txt 
+Metadata.csv
+
+## data_raw
+This subdirectory contains the raw read data downloaded from the BioProject SRAs
+
+## data_filtered
+This subdirectory contains the filtered read data after processing, outputted by `analysis/01_QualityTrimming.Rmd`
+
+## 03_PreProcessing  
+This subdirectory contains the raw physeq and raw preprocessed physeq objects outputted by 
+`analysis/03_PreProcessing.Rmd`
+
+## 04_PhylogeneticTree
+This subdirectory contains midpoint rooted tree, along with the intermediate MAFFT and FastTree data files outputted by 04A and 04B Rmd’s `analysis/04A_Phylogenetic_tree`
+
+## 05_Biodiversity
+This subdirectory contains iNEXT data to be used by  `analysis/05_Biodiversity`
+
+## 06_Ordination 
+This subdirectory contains the scaled physeq object created by  `analysis/06_Ordination`
+
+## Accessions.txt and Metatada.csv
+These files come from the BioProject SRA, to identify the samples
